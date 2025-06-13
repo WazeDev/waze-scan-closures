@@ -231,12 +231,12 @@ async function notifyDiscord({
   } catch (e) {
     console.warn(`Lookup failed: ${e.message} ${featuresUrl}`);
   }
-  // check location if any keywords from region.keywordsFilter are present
+  // check location if any keywords from region.locationKeywordsFilter are present
   if (location !== "Unknown") {
     let searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
     let searchQuery = encodeURIComponent(`${location} ${searchParams}`);
-    if (region.keywordsFilter && region.keywordsFilter.length > 0) {
-      const keywords = region.keywordsFilter.map((k) => k.toLowerCase());
+    if (region.locationKeywordsFilter && region.locationKeywordsFilter.length > 0) {
+      const keywords = region.locationKeywordsFilter.map((k) => k.toLowerCase());
       if (!keywords.some((k) => location.toLowerCase().includes(k))) {
         console.warn(`Closure is not in region "${location}", skipping…`);
         return; // exit early if no keywords match
@@ -258,6 +258,14 @@ async function notifyDiscord({
   const appUrl = `https://www.waze.com/ul?ll=${latStart.toFixed(
     6
   )},${lonStart.toFixed(6)}`;
+  if (region.departmentOfTransporationUrl) {
+    // if region has a DoT URL, append it to the appUrl
+    let dotMap = region.departmentOfTransporationUrl.replace(
+      "{lat}",
+      latStart.toFixed(6)
+    );
+    dotMap = dotMap.replace("{lon}", lonStart.toFixed(6));
+  }
   const embed = {
     author: { name: "New App Closure (A➜B)" },
     color: 0xe74c3c,
@@ -285,6 +293,9 @@ async function notifyDiscord({
       },
     ],
   };
+  if (region.departmentOfTransporationUrl) {
+    fields[4].value += ` | [Department of Transportation Map Link](${region.departmentOfTransporationUrl})`;
+  }
 
   // 4) send to Discord
   try {
