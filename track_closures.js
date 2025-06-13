@@ -1,14 +1,23 @@
+import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
+const COOKIE_PATH = 'cookies.json';
+
+// ← ensure cookies.json exists
+if (!fs.existsSync(COOKIE_PATH)) {
+  fs.writeFileSync(COOKIE_PATH, JSON.stringify([], null, 2), 'utf8');
+}
+
 // emulate __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const roadTypes = { 1: 'Street', 2: 'Primary Street', 3: 'Freeway (Interstate / Other)', 4: 'Ramp', 5: 'Routable Pedestrian Path', 6: 'Major Highway', 7: 'Minor Highway', 8: 'Off-road / Not maintained', 9: 'Walkway', 10: 'Non-Routable Pedestrian Path', 15: 'Ferry', 16: 'Stairway', 17: 'Private Road', 18: 'Railroad', 19: 'Runway', 20: 'Parking Lot Road', 22: 'Passageway' }
+const editorUrl = 'https://waze.com/editor';
 
 dotenv.config();
 
@@ -18,11 +27,60 @@ function delay(time) {
     });
 }
 
-// --- add this to load cookies and build your header ---
-const COOKIE_PATH = path.resolve(__dirname, 'cookies.json');
+// Launch the browser and open a new blank page and make it visible
+const browser = await puppeteer.launch({
+    headless: false, // Set to false to see the browser
+    defaultViewport: null, // Use the default viewport size
+    args: ['--start-maximized'] // Start the browser maximized
+});
+const page = await browser.newPage();
+
+// Load and apply saved cookies to the page
 const rawCookies = JSON.parse(fs.readFileSync(COOKIE_PATH, 'utf8'));
 const validCookies = rawCookies.filter(c => c.name && c.value);
-const cookieHeader = validCookies.map(c => `${c.name}=${c.value}`).join('; ');
+if (validCookies.length) {
+  await page.setCookie(...validCookies);
+}
+
+// Build a Cookie header string for node‐fetch
+const cookieHeader = validCookies
+  .map(c => `${c.name}=${c.value}`)
+  .join('; ');
+
+// 1) Navigate and wait for SDK + login in one go
+await page.goto(editorUrl);
+
+await page.waitForFunction(
+    () => {
+        // guard against SDK not injected yet
+        if (typeof window.getWmeSdk !== 'function') {
+            console.log('waiting for getWmeSdk…');
+            return false;
+        }
+        const sdk = window.getWmeSdk({
+            scriptId: 'wme-scan-closures',
+            scriptName: 'Waze Scan Closures'
+        });
+        console.log('got sdk, loggedIn=', !!sdk?.WmeState?.isLoggedIn());
+        return sdk?.State?.isLoggedIn() === true;
+    },
+    {
+        polling: 1000,  // check every second
+        timeout: 0      // wait indefinitely
+    }
+);
+
+console.log('✅ Logged in; continuing…');
+
+// 2) Save fresh cookies
+const freshCookies = await browser.cookies();
+fs.writeFileSync(COOKIE_PATH, JSON.stringify(freshCookies, null, 2));
+
+// ← if cookies loaded/saved OK, close Puppeteer and exit
+if (freshCookies.length > 0) {
+  console.log('✅ Cookies are OK, closing browser.');
+  await browser.close();
+}
 
 // now WEBHOOK_URL will be picked up from your .env
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;

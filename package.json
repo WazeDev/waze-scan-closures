@@ -1,16 +1,14 @@
 {
-  "dependencies": {
-    "dotenv": "^16.5.0",
-    "node-fetch": "^3.3.2",
-    "puppeteer": "^24.10.0"
-  },
   "name": "wme-scan-closures",
-  "version": "1.0.0",
-  "main": "scan_areas.js",
+  "version": "1.0.1",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "scan": "node scan_areas.js",
+    "track": "node track_closures.js"
   },
-  "author": "",
-  "license": "MIT",
-  "description": ""
+  "dependencies": {
+    "puppeteer": "^20.0.0",
+    "node-fetch": "^3.0.0",
+    "dotenv": "^10.0.0"
+  }
 }

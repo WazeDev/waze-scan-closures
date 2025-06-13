@@ -11,6 +11,10 @@ function delay(time) {
     });
 }
 
+if (!fs.existsSync(COOKIE_PATH)) {
+  fs.writeFileSync(COOKIE_PATH, JSON.stringify([], null, 2), 'utf8');
+}
+
 // Launch the browser and open a new blank page and make it visible
 const browser = await puppeteer.launch({
     headless: false, // Set to false to see the browser
