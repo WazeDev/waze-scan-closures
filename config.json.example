@@ -5,7 +5,8 @@
       "xMax": -66.5,
       "yMin": 24.396308,
       "yMax": 49.384358,
-      "keywordFilter": ["KEYWORDS_HERE"],
+      "locationKeywordsFilter": ["KEYWORDS_HERE"],
+      "departmentOfTransporationUrl": "DOT_URL_HERE",
       "discordWebhookUrl": "WEBHOOK_URL_HERE_FOR_DISCORD"
     }
   },
