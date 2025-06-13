@@ -25,6 +25,8 @@ try {
   process.exit(1);
 }
 
+
+
 const roadTypes = {
   1: "Street",
   2: "Primary Street",
@@ -119,7 +121,13 @@ if (fs.existsSync(TRACK_FILE)) {
 
 // Function to scan for new IDs
 async function updateTracking() {
-  const data = JSON.parse(fs.readFileSync(SCAN_FILE, "utf8"));
+    let data;
+    try {
+        data = JSON.parse(fs.readFileSync(SCAN_FILE, "utf8"));
+    } catch {
+        console.error(`❌ Scan results file not found: ${SCAN_FILE}`);
+        return;
+    }
   const newClosures = [];
 
   for (const country in data) {
@@ -155,7 +163,7 @@ async function notifyDiscord({
   userId,
   trust = 0,
   timestamp,
-  location = "",
+  location = "Unknown",
   reason = "No Reason Selected",
   segmentType = "Unknown",
 }) {
@@ -191,8 +199,7 @@ async function notifyDiscord({
     // get user & segment
     const usr = js.users.objects.find((u) => u.id === userId);
     const segment = js.segments.objects.find((s) => s.id === segID);
-    if (usr?.userName) userName = usr.userName;
-    if (usr?.rank && usr.rank > 0) userName = `[${usr.userName}](https://www.waze.com/user/editor/${usr.userName})`;
+    if (usr?.userName) userName = `[${usr.userName} (${usr.rank})](https://www.waze.com/user/editor/${usr.userName})`;
     if (segment?.roadType) segmentType = roadTypes[segment.roadType];
 
     // ← LOOKUP STREET, CITY & STATE
@@ -202,16 +209,21 @@ async function notifyDiscord({
       );
       if (street) {
         streetName = street.name || street.englishName || streetName;
+        if (streetName !== null && streetName !== "") location = streetName;
         const city = js.cities.objects.find((c) => c.id === street.cityID);
         if (city) {
-          cityName = city.name;
+          cityName = city.name || city.englishName;
+          if (cityName !== null && cityName !== "") location += `, ${cityName}`;
           const state = js.states.objects.find((st) => st.id === city.stateID);
-          if (state) stateName = state.name;
+          if (state) { 
+            stateName = state.name;
+            if (stateName !== null && stateName !== "") location += `, ${stateName}`;
+          }
         }
       }
     }
   } catch (e) {
-    console.warn(`Lookup failed: ${e.message}`);
+    console.warn(`Lookup failed: ${e.message} ${featuresUrl}`);
   }
 
   const envParam =
@@ -233,12 +245,17 @@ async function notifyDiscord({
     fields: [
       {
         name: "User",
-        value: `${userName} • <t:${(timestamp / 1000).toFixed(0)}:F>`,
+        value: `${userName}`,
+      },
+      {
+        name: "Reported at",
+        value: `<t:${(timestamp / 1000).toFixed(0)}:F>`,
       },
       { name: "Segment Type", value: segmentType, inline: true },
       {
         name: "Location",
-        value: `${streetName}, ${cityName}, ${stateName}`
+        value: location,
+        inline: true,
       },
       {
         name: "Links",
@@ -260,6 +277,24 @@ async function notifyDiscord({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ embeds: [embed] }),
     });
+    switch (discordReq.status) {
+      case 204:
+        console.log("Discord notification sent successfully.");
+        break;
+      case 429:
+        console.error("Discord rate limit exceeded, retry later.");
+      case 400:
+        const errorText = await discordReq.text();
+        console.error(
+          `Embed data is invalid: ${errorText}`
+        );
+        return; // exit early on bad request
+      default:
+        const text = await discordReq.text();
+        console.error(
+          `Discord webhook request failed (${discordReq.status}): ${text}`
+        );
+    }
   } catch (e) {
     console.error("Discord webhook error:", e.message);
   }
