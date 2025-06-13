@@ -5,6 +5,7 @@
       "xMax": -66.5,
       "yMin": 24.396308,
       "yMax": 49.384358,
+      "keywordFilter": ["KEYWORDS_HERE"],
       "discordWebhookUrl": "WEBHOOK_URL_HERE_FOR_DISCORD"
     }
   },
