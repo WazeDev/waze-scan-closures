@@ -1,0 +1,5 @@
+cookies.json
+scan_results.json
+closure_tracking.json
+.env
+node_modules/
