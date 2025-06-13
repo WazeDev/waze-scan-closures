@@ -221,6 +221,11 @@ async function notifyDiscord({
           }
         }
       }
+      if (location !== "Unknown") { 
+        let searchParams = `(closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+        let searchQuery = encodeURIComponent(`${location} ${searchParams}`);
+        location = `[${location}](https://www.google.com/search?q=${searchQuery})`
+      }
     }
   } catch (e) {
     console.warn(`Lookup failed: ${e.message} ${featuresUrl}`);
@@ -254,7 +259,7 @@ async function notifyDiscord({
       { name: "Segment Type", value: segmentType, inline: true },
       {
         name: "Location",
-        value: `[${location}](https://www.google.com/search?q=${encodeURIComponent(`${location} (closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`)})`,
+        value: location,
         inline: true,
       },
       {
