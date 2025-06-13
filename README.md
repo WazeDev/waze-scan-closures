@@ -18,8 +18,8 @@ Scans for Waze map closures and sends Discord notifications when new closures ar
 ## Installation
 
 ```sh
-git clone https://github.com/WazeDev/wme-scan-closures.git
-cd wme-scan-closures
+git clone https://github.com/WazeDev/waze-scan-closures.git
+cd waze-scan-closures
 npm install
 ```
 
