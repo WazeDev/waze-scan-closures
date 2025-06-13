@@ -1,6 +1,6 @@
 {
   "name": "wme-scan-closures",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "scan": "node scan_areas.js",
@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "puppeteer": "^20.0.0",
-    "node-fetch": "^3.0.0",
-    "dotenv": "^10.0.0"
+    "node-fetch": "^3.0.0"
   }
 }

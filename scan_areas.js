@@ -27,6 +27,9 @@ const COOKIE_PATH = 'cookies.json'
 const editorUrl = 'https://waze.com/editor'
 
 function delay(time) {
+  if (time <= 0) {
+    return Promise.resolve(); // No delay needed
+  }
   return new Promise(function (resolve) {
     setTimeout(resolve, time)
   });
@@ -82,7 +85,7 @@ await page.waitForFunction(
 console.log('✅ Logged in; continuing…');
 
 // 2) Save fresh cookies
-const freshCookies = await browser.cookies();
+const freshCookies = await page.cookies();
 fs.writeFileSync(COOKIE_PATH, JSON.stringify(freshCookies, null, 2));
 
 // ← if cookies loaded/saved OK, close Puppeteer and exit
@@ -174,7 +177,7 @@ for (const country in scanQueue) {
       scanResults[country].closures.push(...userClosures);
       fs.writeFileSync('scan_results.json', JSON.stringify(scanResults, null, 2));
     }
-    await delay(2000); // delay 2 seconds between requests to keep Waze happy
+    await delay(1000 - reqDuration); // Make sure there is one second between requests to keep Waze happy
   }
 
   const regionDuration = Date.now() - regionStart;
@@ -182,7 +185,7 @@ for (const country in scanQueue) {
 
   console.log(
     `✅ Completed ${country} in ${regionDuration}ms ` +
-    `(${(regionDuration / 1000).toFixed(1)}s\\${((regionDuration / 1000).toFixed(1)) / 60}mins), ` +
+    `(${(regionDuration / 1000).toFixed(1)}s/${((regionDuration / 1000).toFixed(1)) / 60}mins), ` +
     `avg request time ${regionAvg.toFixed(1)}ms`
   );
 }
@@ -190,5 +193,5 @@ for (const country in scanQueue) {
 const overallDuration = Date.now() - overallStart;
 console.log(
   `🎉 All scans completed in ${overallDuration}ms ` +
-  `(${(overallDuration / 1000).toFixed(1)}s\\${((overallDuration / 1000).toFixed(1)) / 60}mins)`
+  `(${(overallDuration / 1000).toFixed(1)}s/${((overallDuration / 1000).toFixed(1)) / 60}mins)`
 );
