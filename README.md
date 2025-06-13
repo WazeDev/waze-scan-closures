@@ -1,4 +1,4 @@
-# wme-scan-closures
+# waze-scan-closures
 
 Scans for Waze map closures and sends Discord notifications when new closures are reported.
 
