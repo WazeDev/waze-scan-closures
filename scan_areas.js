@@ -159,7 +159,7 @@ for (const country in scanQueue) {
 
     const reqDuration = Date.now() - reqStart;
     regionReqSum += reqDuration;
-    console.log(` → request took ${reqDuration}ms`);
+    console.log(` → request took ${reqDuration}ms/${(reqDuration / 1000).toFixed(1)}s`);
 
     console.log(
       `→ got ${closuresData.roadClosures.objects.length} roadClosures ` +
