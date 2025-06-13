@@ -122,22 +122,22 @@ function generateScanQueue() {
 }
 
 // Track total scan time
-const overallStart = Date.now();
-
+let overallStart;
 // 3) Generate scan queue and start visiting URLs
 const scanQueue = generateScanQueue();
 const scanResults = {};
 
 // initialize a closures array for each country
-for (const country in scanQueue) {
-  scanResults[country] = { closures: [] };
-}
 if (cfg.loop === undefined) {
   cfg.loop = false; // default to not looping
 }
 if (cfg.loop) {
   console.log('🔄 Looping enabled, will repeat scans until stopped.')
   while (cfg.loop) {
+    for (const country in scanQueue) {
+      scanResults[country] = { closures: [] };
+    }
+    overallStart = Date.now();
     await performScan();
   }
 } else {
