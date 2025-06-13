@@ -1,0 +1,6 @@
+{
+  "discordWebhookUrl": "https://discord.com/api/webhooks/…YOUR_WEBHOOK_ID…/TOKEN",
+  "regionBoundaries": {
+    "US": { "xMin": -125, "xMax": -66.5, "yMin": 24.396308, "yMax": 49.384358 }
+  }
+}

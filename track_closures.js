@@ -16,6 +16,21 @@ if (!fs.existsSync(COOKIE_PATH)) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// load config.json
+const configPath = path.resolve(__dirname, 'config.json');
+let WEBHOOK_URL;
+try {
+  const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  WEBHOOK_URL = cfg.discordWebhookUrl;
+} catch (err) {
+  console.error('❌ Failed to load config.json:', err.message);
+  process.exit(1);
+}
+if (!WEBHOOK_URL) {
+  console.error('❌ Missing "discordWebhookUrl" in config.json');
+  process.exit(1);
+}
+
 const roadTypes = { 1: 'Street', 2: 'Primary Street', 3: 'Freeway (Interstate / Other)', 4: 'Ramp', 5: 'Routable Pedestrian Path', 6: 'Major Highway', 7: 'Minor Highway', 8: 'Off-road / Not maintained', 9: 'Walkway', 10: 'Non-Routable Pedestrian Path', 15: 'Ferry', 16: 'Stairway', 17: 'Private Road', 18: 'Railroad', 19: 'Runway', 20: 'Parking Lot Road', 22: 'Passageway' }
 const editorUrl = 'https://waze.com/editor';
 
@@ -39,7 +54,7 @@ const page = await browser.newPage();
 const rawCookies = JSON.parse(fs.readFileSync(COOKIE_PATH, 'utf8'));
 const validCookies = rawCookies.filter(c => c.name && c.value);
 if (validCookies.length) {
-  await page.setCookie(...validCookies);
+  await browser.setCookie(...validCookies);
 }
 
 // Build a Cookie header string for node‐fetch
@@ -83,12 +98,6 @@ if (freshCookies.length > 0) {
 }
 
 // now WEBHOOK_URL will be picked up from your .env
-const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-if (!WEBHOOK_URL) {
-    console.error('❌ Missing DISCORD_WEBHOOK_URL in .env');
-    process.exit(1);
-}
-
 const SCAN_FILE = path.resolve(__dirname, 'scan_results.json');
 const TRACK_FILE = path.resolve(__dirname, 'closure_tracking.json');
 // Load or initialize tracking store (id -> { firstSeen, country })
@@ -152,21 +161,40 @@ async function notifyDiscord({
         `bbox=${adjLon1},${adjLat1},${adjLon2},${adjLat2}` +
         `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
 
-    // ← include cookies when fetching user info
     let userName = userId;
+    let streetName = 'Unknown';
+    // default city/state
+    let cityName = 'Unknown', stateName = 'Unknown';
+
     try {
-        await delay(2000); // delay 2 seconds between requests to keep Waze happy
+        await delay(2000);
         const res = await fetch(featuresUrl, {
             headers: { Cookie: cookieHeader },
             timeout: 30000
         });
         const js = await res.json();
+
+        // get user & segment
         const usr = js.users.objects.find(u => u.id === userId);
         const segment = js.segments.objects.find(s => s.id === segID);
         if (usr?.userName) userName = usr.userName;
-        if (segment?.roadType) segmentType = roadTypes[segment.roadType]
+        if (segment?.roadType) segmentType = roadTypes[segment.roadType];
+
+        // ← LOOKUP STREET, CITY & STATE
+        if (segment?.primaryStreetID) {
+            const street = js.streets.objects.find(st => st.id === segment.primaryStreetID);
+            if (street) {
+                streetName = street.name || street.englishName || streetName;
+                const city = js.cities.objects.find(c => c.id === street.cityID);
+                if (city) {
+                    cityName = city.name;
+                    const state = js.states.objects.find(st => st.id === city.stateID);
+                    if (state) stateName = state.name;
+                }
+            }
+        }
     } catch (e) {
-        console.warn(`User lookup failed: ${e.message}, features URL: ${featuresUrl}`);
+        console.warn(`Lookup failed: ${e.message}`);
     }
 
     const envParam = country.toLowerCase() === 'us' ? 'usa' : country.toLowerCase();
@@ -178,20 +206,18 @@ async function notifyDiscord({
         `${latStart.toFixed(6)}%2C${lonStart.toFixed(6)}`;
     const appUrl = `https://www.waze.com/ul?ll=${latStart.toFixed(6)},${lonStart.toFixed(6)}`;
     const embed = {
-        author: {
-            name: 'New App Closure (A➜B)'
-        },
+        author: { name: 'New App Closure (A➜B)' },
         color: 0xE74C3C,
         fields: [
-            { name: 'User', value: `${userName} • <t:${(timestamp / 1000).toFixed(0)}:F>`, inline: false },
+            { name: 'User', value: `${userName} • <t:${(timestamp / 1000).toFixed(0)}:F>` },
             { name: 'Segment Type', value: segmentType, inline: true },
+            { name: 'Location', value: `${streetName}, ${cityName}, ${stateName}`, inline: true },
             {
                 name: 'Links',
                 value:
-                    `[WME Link](${editorUrl}) | ` +
-                    `[Livemap Link](${liveMapUrl}) | ` +
-                    `[App Link](${appUrl})`,
-                inline: false
+                  `[WME Link](${editorUrl}) | `+
+                  `[Livemap Link](${liveMapUrl}) | `+
+                  `[App Link](${appUrl})`
             }
         ]
     };
