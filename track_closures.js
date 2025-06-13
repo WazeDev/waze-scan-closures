@@ -254,7 +254,7 @@ async function notifyDiscord({
       { name: "Segment Type", value: segmentType, inline: true },
       {
         name: "Location",
-        value: `[${location}](https://www.google.com/search?q=${encodeURIComponent(`${location} (closure | construction | project | detour | maintenance | closed ) && (city | county | state)`)})`,
+        value: `[${location}](https://www.google.com/search?q=${encodeURIComponent(`${location} (closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`)})`,
         inline: true,
       },
       {
