@@ -258,9 +258,10 @@ async function notifyDiscord({
   const appUrl = `https://www.waze.com/ul?ll=${latStart.toFixed(
     6
   )},${lonStart.toFixed(6)}`;
+  let dotMap;
   if (region.departmentOfTransporationUrl) {
     // if region has a DoT URL, append it to the appUrl
-    let dotMap = region.departmentOfTransporationUrl.replace(
+    dotMap = region.departmentOfTransporationUrl.replace(
       "{lat}",
       latStart.toFixed(6)
     );
@@ -294,7 +295,7 @@ async function notifyDiscord({
     ],
   };
   if (region.departmentOfTransporationUrl) {
-    fields[4].value += ` | [Department of Transportation Map Link](${region.departmentOfTransporationUrl})`;
+    embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
   }
 
   // 4) send to Discord
