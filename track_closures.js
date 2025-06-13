@@ -25,8 +25,6 @@ try {
   process.exit(1);
 }
 
-
-
 const roadTypes = {
   1: "Street",
   2: "Primary Street",
@@ -121,13 +119,13 @@ if (fs.existsSync(TRACK_FILE)) {
 
 // Function to scan for new IDs
 async function updateTracking() {
-    let data;
-    try {
-        data = JSON.parse(fs.readFileSync(SCAN_FILE, "utf8"));
-    } catch {
-        console.error(`❌ Scan results file not found: ${SCAN_FILE}`);
-        return;
-    }
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(SCAN_FILE, "utf8"));
+  } catch {
+    console.error(`❌ Scan results file not found: ${SCAN_FILE}`);
+    return;
+  }
   const newClosures = [];
 
   for (const country in data) {
@@ -148,11 +146,12 @@ async function updateTracking() {
 
   if (newClosures.length) {
     fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+    console.log(`👀 Found ${newClosures.length} new closures!`);
     for (const closure of newClosures) {
       await notifyDiscord(closure);
     }
   } else {
-    console.log("👀 No new closures found.");
+    //console.log("👀 No new closures found.");
   }
 }
 
@@ -172,6 +171,7 @@ async function notifyDiscord({
   const coords = geometry.coordinates;
   const [lonStart, latStart] = coords[0];
   const [lonEnd, latEnd] = coords[coords.length - 1];
+  const region = cfg.regionBoundaries[country];
 
   const adjLon1 = +lonStart.toFixed(2) + 0.01;
   const adjLat1 = +latStart.toFixed(2) + 0.01;
@@ -180,7 +180,9 @@ async function notifyDiscord({
 
   const featuresUrl =
     `https://www.waze.com/Descartes/app/Features?` +
-    `bbox=${adjLon1.toFixed(2)},${adjLat1.toFixed(2)},${adjLon2.toFixed(2)},${adjLat2.toFixed(2)}` +
+    `bbox=${adjLon1.toFixed(2)},${adjLat1.toFixed(2)},${adjLon2.toFixed(
+      2
+    )},${adjLat2.toFixed(2)}` +
     `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
   let userName = userId;
   let streetName = "Unknown";
@@ -201,7 +203,8 @@ async function notifyDiscord({
     // get user & segment
     const usr = js.users.objects.find((u) => u.id === userId);
     const segment = js.segments.objects.find((s) => s.id === segID);
-    if (usr?.userName) userName = `[${usr.userName} (${usr.rank})](https://www.waze.com/user/editor/${usr.userName})`;
+    if (usr?.userName)
+      userName = `[${usr.userName} (${usr.rank})](https://www.waze.com/user/editor/${usr.userName})`;
     if (segment?.roadType) segmentType = roadTypes[segment.roadType];
 
     // ← LOOKUP STREET, CITY & STATE
@@ -217,20 +220,29 @@ async function notifyDiscord({
           cityName = city.name || city.englishName;
           if (cityName !== null && cityName !== "") location += `, ${cityName}`;
           const state = js.states.objects.find((st) => st.id === city.stateID);
-          if (state) { 
+          if (state) {
             stateName = state.name;
-            if (stateName !== null && stateName !== "") location += `, ${stateName}`;
+            if (stateName !== null && stateName !== "")
+              location += `, ${stateName}`;
           }
         }
-      }
-      if (location !== "Unknown") { 
-        let searchParams = `(closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
-        let searchQuery = encodeURIComponent(`${location} ${searchParams}`);
-        location = `[${location}](https://www.google.com/search?q=${searchQuery})`
       }
     }
   } catch (e) {
     console.warn(`Lookup failed: ${e.message} ${featuresUrl}`);
+  }
+  // check location if any keywords from region.keywordsFilter are present
+  if (location !== "Unknown") {
+    let searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+    let searchQuery = encodeURIComponent(`${location} ${searchParams}`);
+    if (region.keywordsFilter && region.keywordsFilter.length > 0) {
+      const keywords = region.keywordsFilter.map((k) => k.toLowerCase());
+      if (!keywords.some((k) => location.toLowerCase().includes(k))) {
+        console.warn(`Closure is not in region "${location}", skipping…`);
+        return; // exit early if no keywords match
+      }
+    }
+    location = `[${location}](https://www.google.com/search?q=${searchQuery})`;
   }
 
   const envParam =
@@ -276,10 +288,8 @@ async function notifyDiscord({
 
   // 4) send to Discord
   try {
-    console.log(
-      `Sending a closure notification to Discord (${country})…`
-    );
-    let discordReq = await fetch(cfg.regionBoundaries[country].discordWebhookUrl, {
+    console.log(`Sending a closure notification to Discord (${country})…`);
+    let discordReq = await fetch(region.discordWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ embeds: [embed] }),
@@ -292,9 +302,7 @@ async function notifyDiscord({
         console.error("Discord rate limit exceeded, retry later.");
       case 400:
         const errorText = await discordReq.text();
-        console.error(
-          `Embed data is invalid: ${errorText}`
-        );
+        console.error(`Embed data is invalid: ${errorText}`);
         return; // exit early on bad request
       default:
         const text = await discordReq.text();
@@ -312,6 +320,6 @@ async function notifyDiscord({
 console.log("👀 Watching for new closures…");
 await updateTracking();
 fs.watchFile(SCAN_FILE, { interval: 1000 }, (curr, prev) => {
-    console.log(`👀 Scan results has been updated, checking for new closures...`);
-  if (curr.mtime > prev.mtime) updateTracking() 
+  //console.log(`👀 Scan results has been updated, checking for new closures...`);
+  if (curr.mtime > prev.mtime) updateTracking();
 });
