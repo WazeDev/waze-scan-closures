@@ -254,7 +254,7 @@ async function notifyDiscord({
       { name: "Segment Type", value: segmentType, inline: true },
       {
         name: "Location",
-        value: location,
+        value: `[${location}](https://www.google.com/search?q=${encodeURIComponent(location)})`,
         inline: true,
       },
       {
