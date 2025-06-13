@@ -1,6 +1,6 @@
 {
   "name": "waze-scan-closures",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "scripts": {
     "scan": "node scan_areas.js",
