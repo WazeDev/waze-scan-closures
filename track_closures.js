@@ -151,6 +151,8 @@ async function updateTracking() {
     for (const closure of newClosures) {
       await notifyDiscord(closure);
     }
+  } else {
+    console.log("👀 No new closures found.");
   }
 }
 
@@ -250,7 +252,7 @@ async function notifyDiscord({
     fields: [
       {
         name: "User",
-        value: `${userName}`,
+        value: userName,
       },
       {
         name: "Reported at",
@@ -307,7 +309,9 @@ async function notifyDiscord({
 }
 
 // Initial run & watch
+console.log("👀 Watching for new closures…");
 await updateTracking();
 fs.watchFile(SCAN_FILE, { interval: 1000 }, (curr, prev) => {
-  if (curr.mtime > prev.mtime) updateTracking();
+    console.log(`👀 Scan results has been updated, checking for new closures...`);
+  if (curr.mtime > prev.mtime) updateTracking() 
 });
