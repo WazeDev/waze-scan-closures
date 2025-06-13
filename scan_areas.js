@@ -11,8 +11,9 @@ const __dirname = path.dirname(__filename)
 // load config.json
 const cfgPath = path.resolve(__dirname, 'config.json')
 let regionBoundaries
+let cfg;
 try {
-  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
+  cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
   regionBoundaries = cfg.regionBoundaries
 } catch (err) {
   console.error('❌ Failed to load regionBoundaries from config.json:', err.message)
@@ -131,7 +132,21 @@ const scanResults = {};
 for (const country in scanQueue) {
   scanResults[country] = { closures: [] };
 }
+if (cfg.loop === undefined) {
+  cfg.loop = false; // default to not looping
+}
+if (cfg.loop) {
+  console.log('🔄 Looping enabled, will repeat scans until stopped.')
+  while (cfg.loop) {
+    await performScan();
+  }
+} else {
+  console.log('🔄 Looping disabled, will perform a single scan.')
+  await performScan();
+  console.log('🔄 Scan completed, exiting.');
+}
 
+async function performScan() {
 for (const country in scanQueue) {
   console.log(`Scanning ${country}…`);
   const regionStart = Date.now();
@@ -195,3 +210,4 @@ console.log(
   `🎉 All scans completed in ${overallDuration}ms ` +
   `(${(overallDuration / 1000).toFixed(1)}s/${((overallDuration / 1000).toFixed(1)) / 60}mins)`
 );
+}
