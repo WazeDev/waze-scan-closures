@@ -44,6 +44,26 @@ const roadTypes = {
   20: "Parking Lot Road",
   22: "Passageway",
 };
+
+const roadTypeColors = {
+  1: 0xD5D4C4, // Street
+  2: 0xD5CF4D, // Primary Street
+  3: 0xAF6ABA, // Freeway (Interstate / Other)
+  4: 0x9EA99F, // Ramp
+  5: 0x8e44ad, // Routable Pedestrian Path
+  6: 0x3CA3B9, // Major Highway
+  7: 0x5EA978, // Minor Highway
+  8: 0x95a5a6, // Off-road / Not maintained
+  9: 0x7f8c8d, // Walkway
+  10: 0x34495e, // Non-Routable Pedestrian Path
+  15: 0x16a085, // Ferry
+  16: 0x27ae60, // Stairway
+  17: 0xc0392b, // Private Road
+  18: 0x8e44ad, // Railroad
+  19: 0x2980b9, // Runway
+  20: 0x3498db, // Parking Lot Road
+  22: 0x2ecc71, // Passageway
+};
 const editorUrl = "https://waze.com/editor";
 
 function delay(time) {
@@ -192,6 +212,7 @@ async function notifyDiscord({
   let cityName = "Unknown",
     stateName = "Unknown";
   let reqStart, reqDuration;
+  let segment;
   try {
     console.log(`Fetching closure details ${id} (${country})…`);
     reqStart = Date.now();
@@ -204,7 +225,7 @@ async function notifyDiscord({
 
     // get user & segment
     const usr = js.users.objects.find((u) => u.id === userId);
-    const segment = js.segments.objects.find((s) => s.id === segID);
+    segment = js.segments.objects.find((s) => s.id === segID);
     if (usr?.userName)
       userName = `[${usr.userName} (${usr.rank})](https://www.waze.com/user/editor/${usr.userName})`;
     if (segment?.roadType) segmentType = roadTypes[segment.roadType];
@@ -266,8 +287,7 @@ async function notifyDiscord({
     dotMap = region.departmentOfTransporationUrl.replace(
       "{lat}",
       latStart.toFixed(6)
-    );
-    dotMap = dotMap.replace("{lon}", lonStart.toFixed(6));
+    ).replace("{lon}", lonStart.toFixed(6));
   }
   let direction;
   if (forward === true) {
@@ -277,7 +297,7 @@ async function notifyDiscord({
   }
   const embed = {
     author: { name: `New App Closure (${direction})` },
-    color: 0xe74c3c,
+    color: (roadTypeColors[segment?.roadType]) ? roadTypeColors[segment.roadType] : 0xe74c3c, // default to red if no roadType
     fields: [
       {
         name: "User",
