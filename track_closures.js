@@ -138,7 +138,8 @@ async function updateTracking() {
           geometry: c.geometry, // pass full geometry
           segID: c.segID,
           userId: c.createdBy,
-          timestamp: c.createdOn, // use createdOn from scan results
+          timestamp: c.createdOn,
+          forward: c.forward // use createdOn from scan results
         });
       }
     }
@@ -164,6 +165,7 @@ async function notifyDiscord({
   userId,
   trust = 0,
   timestamp,
+  forward,
   location = "Unknown",
   reason = "No Reason Selected",
   segmentType = "Unknown",
@@ -267,8 +269,14 @@ async function notifyDiscord({
     );
     dotMap = dotMap.replace("{lon}", lonStart.toFixed(6));
   }
+  let direction;
+  if (forward === true) {
+    direction = "A➜B";
+  } else {
+    direction = "B➜A";
+  }
   const embed = {
-    author: { name: "New App Closure (A➜B)" },
+    author: { name: `New App Closure (${direction})` },
     color: 0xe74c3c,
     fields: [
       {
