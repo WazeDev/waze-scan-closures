@@ -455,9 +455,9 @@ async function notifyDiscord({
           `[App Link](${appUrl})`,
       },
     ],
-    image: {
-      url: tileUrl, // use the preview tile URL
-    },
+    thumbnail: {
+		url: tileUrl,
+	},
   };
   if (region.departmentOfTransporationUrl) {
     embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;

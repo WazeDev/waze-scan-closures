@@ -348,7 +348,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                     `[App Link](${appUrl})`,
             },
         ],
-        image: {
+        thumbnail: {
             url: tileUrl,
         },
     };
