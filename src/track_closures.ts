@@ -414,13 +414,7 @@ async function notifyDiscord({
       (region.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
       (region.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
     ) {
-      dotMap = region.departmentOfTransporationUrl.replace(
-        "{lat}",
-        adjLat1.toFixed(6).replace("{lat}", adjLat2.toFixed(6))
-      ).replace("{lon}", adjLon1.toFixed(6)).replace(
-        "{lon}",
-        adjLon2.toFixed(6)
-      );
+      dotMap = region.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
     } else {
       dotMap = region.departmentOfTransporationUrl.replace(
         "{lat}",
