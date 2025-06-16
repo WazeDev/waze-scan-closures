@@ -199,6 +199,10 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
         const res = await fetch(featuresUrl, {
             headers: { Cookie: cookieHeader }
         });
+        if (res.status === 403) {
+            console.error(`❌ Received 403 Forbidden from Waze features API for ${featuresUrl}, exiting.`);
+            process.exit(1);
+        }
         const js = await res.json();
         const reqDuration = Date.now() - reqStart;
         await delay(1000 - reqDuration);

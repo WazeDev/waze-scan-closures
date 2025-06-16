@@ -143,6 +143,10 @@ async function performScan() {
                 const res = await fetch(url, {
                     headers: { Cookie: cookieHeader }
                 });
+                if (res.status === 403) {
+                    console.error('❌ Received 403 Forbidden from Waze API, exiting.');
+                    process.exit(1);
+                }
                 closuresData = await res.json();
             }
             catch (err) {
