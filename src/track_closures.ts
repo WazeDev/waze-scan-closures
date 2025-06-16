@@ -381,13 +381,30 @@ async function notifyDiscord({
 
   // check location if any keywords from region.locationKeywordsFilter are present
   if (location !== "Unknown") {
-    let searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
-    let searchQuery = encodeURIComponent(`${location} ${searchParams}`);
+    const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+    const searchQuery = encodeURIComponent(`${location} ${searchParams}`);
     if (region.locationKeywordsFilter && region.locationKeywordsFilter.length > 0) {
       const keywords = region.locationKeywordsFilter.map((k: string) => k.toLowerCase());
       if (!keywords.some((k: string) => location.toLowerCase().includes(k))) {
-        console.warn(`Closure is not in region "${location}", skipping…`);
-        return; // exit early if no keywords match
+        console.warn(`Closure not in current region, trying other regions for "${location}"…`);
+        // try other regions
+        const other = Object.keys(cfg.regionBoundaries).find(r => {
+          if (r === country) return false;
+          const f = cfg.regionBoundaries[r].locationKeywordsFilter;
+          return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
+        });
+        if (other) {
+          console.log(`Reassigning closure ${id} to region ${other}`);
+          tracked[id].country = other;
+          fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+          // notify for new region context
+          await notifyDiscord({ id, country: other, geometry, segID, userId, trust, timestamp, forward });
+          return;
+        } else {
+          console.warn(`Closure does not match any region, ignoring...`);
+          fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+          return;
+        }
       }
     }
     location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
