@@ -363,10 +363,10 @@ async function notifyDiscord({
   let dotMap;
   if (region.departmentOfTransporationUrl) {
     // if region has a DoT URL, append it to the appUrl
-    dotMap = region.departmentOfTransporationUrl.replace(
+    dotMap = region.departmentOfTransporationUrl.replaceAll(
       "{lat}",
       latStart.toFixed(6)
-    ).replace("{lon}", lonStart.toFixed(6));
+    ).replaceAll("{lon}", lonStart.toFixed(6));
   }
   let direction;
   if (forward === true) {

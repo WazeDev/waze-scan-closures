@@ -272,7 +272,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     const appUrl = `https://www.waze.com/ul?ll=${latStart.toFixed(6)},${lonStart.toFixed(6)}`;
     let dotMap;
     if (region.departmentOfTransporationUrl) {
-        dotMap = region.departmentOfTransporationUrl.replace("{lat}", latStart.toFixed(6)).replace("{lon}", lonStart.toFixed(6));
+        dotMap = region.departmentOfTransporationUrl.replaceAll("{lat}", latStart.toFixed(6)).replaceAll("{lon}", lonStart.toFixed(6));
     }
     let direction;
     if (forward === true) {
