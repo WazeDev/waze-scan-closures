@@ -2,4 +2,5 @@ cookies.json
 config.json
 scan_results.json
 closure_tracking.json
+feature_cache.json
 node_modules/

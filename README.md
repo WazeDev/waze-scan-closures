@@ -21,6 +21,7 @@ Scans for Waze map closures and sends Discord notifications when new closures ar
 git clone https://github.com/WazeDev/waze-scan-closures.git
 cd waze-scan-closures
 npm install
+npm run build
 ```
 
 ## Configuration
