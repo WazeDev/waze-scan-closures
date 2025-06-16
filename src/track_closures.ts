@@ -41,10 +41,10 @@ try {
 }
 
 const tileServers = [
-  "https://editor-tiles-na-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
-  "https://editor-tiles-na-2.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
-  "https://editor-tiles-na-3.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
-  "https://editor-tiles-na-4.waze.com/tiles/roads/${z}/${x}/${y}/tile.png"
+  "https://editor-tiles-${env}-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+  "https://editor-tiles-${env}-2.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+  "https://editor-tiles-${env}-3.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+  "https://editor-tiles-${env}-4.waze.com/tiles/roads/${z}/${x}/${y}/tile.png"
 ]
 
 const roadTypes = {
@@ -111,7 +111,7 @@ function lat2tile(lat: number, zoom: number = previewZoomLevel) {
   ));
 }
 
-function pickTileServer(x: string, y: string, t: typeof tileServers = tileServers) {
+function pickTileServer(x: string, y: string, t: typeof tileServers = tileServers, r: { env: string; }) {
   let n = 1;
   let e = `${x}${y}`;
   for (let i = 0; i < e.length; i++) {
@@ -120,7 +120,15 @@ function pickTileServer(x: string, y: string, t: typeof tileServers = tileServer
   }
   const idx = Math.floor(n * t.length);
   let tileServer = t[idx];
-  let url = tileServer.replace("${x}", x).replace("${y}", y).replace("${z}", previewZoomLevel.toString());
+  let env;
+  if (r.env === "row") {
+    env = "row";
+  } else if (r.env === "il") {
+    env = "il";
+  } else {
+    env = "na";
+  }
+  let url = tileServer.replace("${x}", x).replace("${y}", y).replace("${z}", previewZoomLevel.toString()).replace("${env}", env);
   return url;
 }
 
@@ -188,11 +196,12 @@ if (fs.existsSync(TRACK_FILE)) {
 
 // ← Add this right after config.json load
 const CACHE_PATH = path.resolve(__dirname, "..", "feature_cache.json");
-let featureCache: { users: any; segments: any; streets: any; cities: any; states: any; };
+// include countries cache
+let featureCache: { users: any; segments: any; streets: any; cities: any; states: any; countries: any; };
 if (fs.existsSync(CACHE_PATH)) {
   featureCache = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
 } else {
-  featureCache = { users: {}, segments: {}, streets: {}, cities: {}, states: {} };
+  featureCache = { users: {}, segments: {}, streets: {}, cities: {}, states: {}, countries: {} };
 }
 
 // Function to scan for new IDs
@@ -285,7 +294,7 @@ async function notifyDiscord({
   // Get preview tile URL
   const tileX = lon2tile(avgLon, previewZoomLevel);
   const tileY = lat2tile(avgLat, previewZoomLevel);
-  const tileUrl = pickTileServer(tileX, tileY) // pick a tile server based on country
+  const tileUrl = pickTileServer(tileX, tileY, tileServers, region) // pick a tile server based on country
 
   const featuresUrl =
     `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
@@ -300,14 +309,19 @@ async function notifyDiscord({
   const stc = streetID && featureCache.streets[streetID];
   const cc = stc && featureCache.cities[stc.cityID];
   const stt = cc && featureCache.states[cc.stateID];
+  // only lookup country if city has a valid countryID
+  const ctry = cc?.countryID != null
+    ? featureCache.countries[cc.countryID]
+    : undefined;
 
   let userName = uc ? `[${uc.userName} (${uc.rank})](https://www.waze.com/user/editor/${uc.userName})` : userId;
   segmentType = sc ? roadTypes[sc.roadType as keyof typeof roadTypes] : "Unknown";
 
   if (stc) {
     const names = [stc.name || stc.englishName];
-    if (cc) names.push(cc.name || cc.englishName);
-    if (stt) names.push(stt.name);
+    if (cc)   names.push(cc.name  || cc.englishName);
+    if (stt)  names.push(stt.name);
+    if (ctry?.name)  names.push(ctry.name);    // ← here is where country should be added
     location = names.filter(Boolean).join(", ");
   }
 
@@ -343,15 +357,22 @@ async function notifyDiscord({
         cityID: st.cityID,
       };
     });
-    js.cities.objects.forEach((c: { id: string | number; name: any; englishName: any; stateID: any; }) => {
+    js.cities.objects.forEach((c: { id: string | number; name: any; englishName: any; stateID: any; countryID?: number; }) => {
       featureCache.cities[c.id] = {
         name: c.name || c.englishName,
         stateID: c.stateID,
+        countryID: c.countryID,
       };
     });
     js.states.objects.forEach((s: { id: string | number; name: any; }) => {
       featureCache.states[s.id] = { name: s.name };
     });
+    // cache countries
+    if (js.countries?.objects) {
+      js.countries.objects.forEach((c: { id: number; name: string; abbr?: string; env?: string }) => {
+        featureCache.countries[c.id] = { name: c.name, abbr: c.abbr, env: c.env };
+      });
+    }
 
     // persist entire cache
     fs.writeFileSync(CACHE_PATH, JSON.stringify(featureCache, null, 2));
@@ -363,6 +384,7 @@ async function notifyDiscord({
     const stc2 = sc2 && featureCache.streets[sc2.primaryStreetID];
     const cc2 = stc2 && featureCache.cities[stc2.cityID];
     const stt2 = cc2 && featureCache.states[cc2.stateID];
+    const ctry2 = cc2 && featureCache.countries[cc2.countryID];
 
     // overwrite your variables for userName, segmentType, location…
     userName = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
@@ -372,6 +394,7 @@ async function notifyDiscord({
       if (stc2.name) parts.push(stc2.name);
       if (cc2?.name) parts.push(cc2.name);
       if (stt2?.name) parts.push(stt2.name);
+      if (ctry2?.name) parts.push(ctry2.name);
       location = parts.join(", ");
     }
 
@@ -476,6 +499,15 @@ async function notifyDiscord({
 		url: tileUrl,
 	},
   };
+  // include Country ID if available for this city
+  if (cc?.countryID) {
+    embed.fields.splice(4, 0, {
+      name: "Country ID",
+      value: cc.countryID.toString(),
+      inline: true,
+    });
+  }
+
   if (region.departmentOfTransporationUrl) {
     embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
   }

@@ -26,10 +26,10 @@ catch (err) {
     process.exit(1);
 }
 const tileServers = [
-    "https://editor-tiles-na-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
-    "https://editor-tiles-na-2.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
-    "https://editor-tiles-na-3.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
-    "https://editor-tiles-na-4.waze.com/tiles/roads/${z}/${x}/${y}/tile.png"
+    "https://editor-tiles-${env}-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+    "https://editor-tiles-${env}-2.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+    "https://editor-tiles-${env}-3.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+    "https://editor-tiles-${env}-4.waze.com/tiles/roads/${z}/${x}/${y}/tile.png"
 ];
 const roadTypes = {
     1: "Street",
@@ -88,7 +88,7 @@ function lat2tile(lat, zoom = previewZoomLevel) {
         2) *
         2 ** zoom));
 }
-function pickTileServer(x, y, t = tileServers) {
+function pickTileServer(x, y, t = tileServers, r) {
     let n = 1;
     let e = `${x}${y}`;
     for (let i = 0; i < e.length; i++) {
@@ -97,7 +97,17 @@ function pickTileServer(x, y, t = tileServers) {
     }
     const idx = Math.floor(n * t.length);
     let tileServer = t[idx];
-    let url = tileServer.replace("${x}", x).replace("${y}", y).replace("${z}", previewZoomLevel.toString());
+    let env;
+    if (r.env === "row") {
+        env = "row";
+    }
+    else if (r.env === "il") {
+        env = "il";
+    }
+    else {
+        env = "na";
+    }
+    let url = tileServer.replace("${x}", x).replace("${y}", y).replace("${z}", previewZoomLevel.toString()).replace("${env}", env);
     return url;
 }
 const browser = await puppeteer.launch({
@@ -147,7 +157,7 @@ if (fs.existsSync(CACHE_PATH)) {
     featureCache = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
 }
 else {
-    featureCache = { users: {}, segments: {}, streets: {}, cities: {}, states: {} };
+    featureCache = { users: {}, segments: {}, streets: {}, cities: {}, states: {}, countries: {} };
 }
 async function updateTracking() {
     let data;
@@ -208,7 +218,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     }
     const tileX = lon2tile(avgLon, previewZoomLevel);
     const tileY = lat2tile(avgLat, previewZoomLevel);
-    const tileUrl = pickTileServer(tileX, tileY);
+    const tileUrl = pickTileServer(tileX, tileY, tileServers, region);
     const featuresUrl = `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
         `bbox=${adjLon1.toFixed(3)},${adjLat1.toFixed(3)},${adjLon2.toFixed(3)},${adjLat2.toFixed(3)}` +
         `&roadClosures=true&roadTypes=1,2,3,4,6,7,20`;
@@ -218,6 +228,9 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     const stc = streetID && featureCache.streets[streetID];
     const cc = stc && featureCache.cities[stc.cityID];
     const stt = cc && featureCache.states[cc.stateID];
+    const ctry = cc?.countryID != null
+        ? featureCache.countries[cc.countryID]
+        : undefined;
     let userName = uc ? `[${uc.userName} (${uc.rank})](https://www.waze.com/user/editor/${uc.userName})` : userId;
     segmentType = sc ? roadTypes[sc.roadType] : "Unknown";
     if (stc) {
@@ -226,6 +239,8 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
             names.push(cc.name || cc.englishName);
         if (stt)
             names.push(stt.name);
+        if (ctry?.name)
+            names.push(ctry.name);
         location = names.filter(Boolean).join(", ");
     }
     if (!uc || !sc || !stc || !cc || !stt) {
@@ -260,17 +275,24 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
             featureCache.cities[c.id] = {
                 name: c.name || c.englishName,
                 stateID: c.stateID,
+                countryID: c.countryID,
             };
         });
         js.states.objects.forEach((s) => {
             featureCache.states[s.id] = { name: s.name };
         });
+        if (js.countries?.objects) {
+            js.countries.objects.forEach((c) => {
+                featureCache.countries[c.id] = { name: c.name, abbr: c.abbr, env: c.env };
+            });
+        }
         fs.writeFileSync(CACHE_PATH, JSON.stringify(featureCache, null, 2));
         const uc2 = featureCache.users[userId];
         const sc2 = featureCache.segments[segID];
         const stc2 = sc2 && featureCache.streets[sc2.primaryStreetID];
         const cc2 = stc2 && featureCache.cities[stc2.cityID];
         const stt2 = cc2 && featureCache.states[cc2.stateID];
+        const ctry2 = cc2 && featureCache.countries[cc2.countryID];
         userName = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
         segmentType = sc2 ? roadTypes[sc2.roadType] : segmentType;
         if (stc2) {
@@ -281,6 +303,8 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                 parts.push(cc2.name);
             if (stt2?.name)
                 parts.push(stt2.name);
+            if (ctry2?.name)
+                parts.push(ctry2.name);
             location = parts.join(", ");
         }
         sc = sc2;
@@ -369,6 +393,13 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
             url: tileUrl,
         },
     };
+    if (cc?.countryID) {
+        embed.fields.splice(4, 0, {
+            name: "Country ID",
+            value: cc.countryID.toString(),
+            inline: true,
+        });
+    }
     if (region.departmentOfTransporationUrl) {
         embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
     }
