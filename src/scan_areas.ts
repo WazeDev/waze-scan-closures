@@ -15,6 +15,7 @@ interface RegionBoundary {
   xMax: number;
   yMin: number;
   yMax: number;
+  env: string;
 }
 
 let regionBoundaries: Record<string, RegionBoundary>
@@ -148,9 +149,17 @@ function generateScanQueue() {
   const scanUrls: Record<string, string[]> = {};
   for (const region in regionBoundaries) {
     const b = regionBoundaries[region]
+    let envPrefix: string;
+    if (b.env === 'row') {
+      envPrefix = "row-";
+    } else if (b.env === 'il') {
+      envPrefix = "il-";
+    } else { 
+      envPrefix = "";
+    }
     scanUrls[region] = generateCoords(b.xMin, b.xMax, b.yMin, b.yMax)
       .map(c => (
-        `https://www.waze.com/Descartes/app/v1/Features/Closures` +
+        `https://www.waze.com/${envPrefix}Descartes/app/v1/Features/Closures` +
         `?bbox=${String(c.xMin)},${String(c.yMin)},${String(c.xMax)},${String(c.yMax)}`
       ))
   }

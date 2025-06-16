@@ -232,8 +232,17 @@ async function notifyDiscord({
   const adjLon2 = +lonEnd.toFixed(2) - 0.01;
   const adjLat2 = +latEnd.toFixed(2) - 0.01;
 
+  let envPrefix: string;
+    if (region.env === 'row') {
+      envPrefix = "row-";
+    } else if (region.env === 'il') {
+      envPrefix = "il-";
+    } else { 
+      envPrefix = "";
+    }
+
   const featuresUrl =
-    `https://www.waze.com/Descartes/app/Features?` +
+    `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
     `bbox=${adjLon1.toFixed(2)},${adjLat1.toFixed(2)},${adjLon2.toFixed(
       2
     )},${adjLat2.toFixed(2)}` +
