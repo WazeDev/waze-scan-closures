@@ -199,9 +199,25 @@ async function notifyDiscord({
   reason = "No Reason Selected",
   segmentType = "Unknown",
 }) {
+  const coords = geometry.coordinates;
+  const [lonStart, latStart] = coords[0];
+  const [lonEnd, latEnd] = coords[coords.length - 1];
+  const region = cfg.regionBoundaries[country];
+
+  const adjLon1 = +lonStart.toFixed(2) + 0.01;
+  const adjLat1 = +latStart.toFixed(2) + 0.01;
+  const adjLon2 = +lonEnd.toFixed(2) - 0.01;
+  const adjLat2 = +latEnd.toFixed(2) - 0.01;
+
+  const featuresUrl =
+    `https://www.waze.com/Descartes/app/Features?` +
+    `bbox=${adjLon1.toFixed(2)},${adjLat1.toFixed(2)},${adjLon2.toFixed(
+      2
+    )},${adjLat2.toFixed(2)}` +
+    `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
   // first check cache
   const uc = featureCache.users[userId];
-  const sc = featureCache.segments[segID];
+  let sc = featureCache.segments[segID];
   let streetID = sc?.primaryStreetID;
   const stc = streetID && featureCache.streets[streetID];
   const cc = stc && featureCache.cities[stc.cityID];
@@ -220,35 +236,62 @@ async function notifyDiscord({
   // if anything missing in cache, do one fetch and populate cache
   if (!uc || !sc || !stc || !cc || !stt) {
     console.log(`Fetching closure details ${id} (${country})…`);
+    const reqStart = Date.now();
     const res = await fetch(featuresUrl, {
       headers: { Cookie: cookieHeader },
       timeout: 30000,
     });
     const js = await res.json();
-    const usr = js.users.objects.find((u) => u.id === userId);
-    const segment = js.segments.objects.find((s) => s.id === segID);
-    const street = segment?.primaryStreetID
-      && js.streets.objects.find(st => st.id === segment.primaryStreetID);
-    const city = street && js.cities.objects.find(c => c.id === street.cityID);
-    const state = city && js.states.objects.find(s => s.id === city.stateID);
+    const reqDuration = Date.now() - reqStart;
+    await delay(1000 - reqDuration);
 
-    if (usr) featureCache.users[usr.id] = { userName: usr.userName, rank: usr.rank };
-    if (segment) featureCache.segments[segment.id] = { roadType: segment.roadType, primaryStreetID: segment.primaryStreetID };
-    if (street) featureCache.streets[street.id] = { name: street.name||street.englishName, cityID: street.cityID };
-    if (city) featureCache.cities[city.id] = { name: city.name||city.englishName, stateID: city.stateID };
-    if (state) featureCache.states[state.id] = { name: state.name };
 
-    // write back cache
+    // ── BULK POPULATE CACHE ───────────────────────────────────────────────
+    js.users.objects.forEach(u => {
+      featureCache.users[u.id] = { userName: u.userName, rank: u.rank };
+    });
+    js.segments.objects.forEach(s => {
+      featureCache.segments[s.id] = {
+        roadType: s.roadType,
+        primaryStreetID: s.primaryStreetID,
+      };
+    });
+    js.streets.objects.forEach(st => {
+      featureCache.streets[st.id] = {
+        name: st.name || st.englishName,
+        cityID: st.cityID,
+      };
+    });
+    js.cities.objects.forEach(c => {
+      featureCache.cities[c.id] = {
+        name: c.name || c.englishName,
+        stateID: c.stateID,
+      };
+    });
+    js.states.objects.forEach(s => {
+      featureCache.states[s.id] = { name: s.name };
+    });
+
+    // persist entire cache
     fs.writeFileSync(CACHE_PATH, JSON.stringify(featureCache, null, 2));
 
-    // overwrite our local shortcut vars so embed uses fresh data
-    userName = usr
-      ? `[${usr.userName} (${usr.rank})](https://www.waze.com/user/editor/${usr.userName})`
-      : userName;
-    segmentType = segment ? roadTypes[segment.roadType] : segmentType;
-    if (street && city && state) {
-      location = `${street.name||street.englishName}, ${city.name||city.englishName}, ${state.name}`;
+    // ── REBUILD LOCAL SHORTCUTS ──────────────────────────────────────────
+    // re-derive uc, sc, stc, cc, stt, userName, segmentType, location using updated featureCache...
+    const uc2 = featureCache.users[userId];
+    const sc2 = featureCache.segments[segID];
+    const stc2 = sc2 && featureCache.streets[sc2.primaryStreetID];
+    const cc2  = stc2 && featureCache.cities[stc2.cityID];
+    const stt2 = cc2  && featureCache.states[cc2.stateID];
+
+    // overwrite your variables for userName, segmentType, location…
+    userName    = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
+    segmentType = sc2 ? roadTypes[sc2.roadType] : segmentType;
+    if (stc2 && cc2 && stt2) {
+      location = `${stc2.name}, ${cc2.name}, ${stt2.name}`;
     }
+
+    // ← now that we have a fresh segment, overwrite sc so embed.color works
+    sc = sc2;
   }
 
   // check location if any keywords from region.locationKeywordsFilter are present
@@ -294,7 +337,10 @@ async function notifyDiscord({
   }
   const embed = {
     author: { name: `New App Closure (${direction})` },
-    color: (roadTypeColors[segment?.roadType]) ? roadTypeColors[segment.roadType] : 0xe74c3c, // default to red if no roadType
+    // use the cached segment (sc) instead of undefined `segment`
+    color: sc
+      ? (roadTypeColors[sc.roadType] || 0xe74c3c)
+      : 0xe74c3c,
     fields: [
       {
         name: "User",
@@ -326,31 +372,32 @@ async function notifyDiscord({
   // 4) send to Discord
   try {
     console.log(`Sending a closure notification to Discord (${country})…`);
-    let discordReq = await fetch(region.discordWebhookUrl, {
+    // time the request so we can throttle to ~1 req/sec
+    const res = await fetch(region.discordWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ embeds: [embed] }),
     });
-    switch (discordReq.status) {
+
+    switch (res.status) {
       case 204:
         console.log("Discord notification sent successfully.");
         break;
       case 429:
         console.error("Discord rate limit exceeded, retry later.");
       case 400:
-        const errorText = await discordReq.text();
+        const errorText = await res.text();
         console.error(`Embed data is invalid: ${errorText}`);
         return; // exit early on bad request
       default:
-        const text = await discordReq.text();
+        const text = await res.text();
         console.error(
-          `Discord webhook request failed (${discordReq.status}): ${text}`
+          `Discord webhook request failed (${res.status}): ${text}`
         );
     }
   } catch (e) {
     console.error("Discord webhook error:", e.message);
   }
-  await delay(1000 - reqDuration); // avoid rate limiting
 }
 
 // Initial run & watch
