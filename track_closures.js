@@ -137,6 +137,15 @@ if (fs.existsSync(TRACK_FILE)) {
   tracked = JSON.parse(fs.readFileSync(TRACK_FILE, "utf8"));
 }
 
+// ← Add this right after config.json load
+const CACHE_PATH = path.resolve(__dirname, "feature_cache.json");
+let featureCache;
+if (fs.existsSync(CACHE_PATH)) {
+  featureCache = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
+} else {
+  featureCache = { users: {}, segments: {}, streets: {}, cities: {}, states: {} };
+}
+
 // Function to scan for new IDs
 async function updateTracking() {
   let data;
@@ -190,70 +199,58 @@ async function notifyDiscord({
   reason = "No Reason Selected",
   segmentType = "Unknown",
 }) {
-  const coords = geometry.coordinates;
-  const [lonStart, latStart] = coords[0];
-  const [lonEnd, latEnd] = coords[coords.length - 1];
-  const region = cfg.regionBoundaries[country];
+  // first check cache
+  const uc = featureCache.users[userId];
+  const sc = featureCache.segments[segID];
+  let streetID = sc?.primaryStreetID;
+  const stc = streetID && featureCache.streets[streetID];
+  const cc = stc && featureCache.cities[stc.cityID];
+  const stt = cc && featureCache.states[cc.stateID];
 
-  const adjLon1 = +lonStart.toFixed(2) + 0.01;
-  const adjLat1 = +latStart.toFixed(2) + 0.01;
-  const adjLon2 = +lonEnd.toFixed(2) - 0.01;
-  const adjLat2 = +latEnd.toFixed(2) - 0.01;
+  let userName = uc ? `[${uc.userName} (${uc.rank})](https://www.waze.com/user/editor/${uc.userName})` : userId;
+  segmentType = sc ? roadTypes[sc.roadType] : "Unknown";
 
-  const featuresUrl =
-    `https://www.waze.com/Descartes/app/Features?` +
-    `bbox=${adjLon1.toFixed(2)},${adjLat1.toFixed(2)},${adjLon2.toFixed(
-      2
-    )},${adjLat2.toFixed(2)}` +
-    `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
-  let userName = userId;
-  let streetName = "Unknown";
-  // default city/state
-  let cityName = "Unknown",
-    stateName = "Unknown";
-  let reqStart, reqDuration;
-  let segment;
-  try {
+  if (stc) {
+    const names = [stc.name || stc.englishName];
+    if (cc) names.push(cc.name || cc.englishName);
+    if (stt) names.push(stt.name);
+    location = names.filter(Boolean).join(", ");
+  }
+
+  // if anything missing in cache, do one fetch and populate cache
+  if (!uc || !sc || !stc || !cc || !stt) {
     console.log(`Fetching closure details ${id} (${country})…`);
-    reqStart = Date.now();
     const res = await fetch(featuresUrl, {
       headers: { Cookie: cookieHeader },
       timeout: 30000,
     });
     const js = await res.json();
-    reqDuration = Date.now() - reqStart;
-
-    // get user & segment
     const usr = js.users.objects.find((u) => u.id === userId);
-    segment = js.segments.objects.find((s) => s.id === segID);
-    if (usr?.userName)
-      userName = `[${usr.userName} (${usr.rank})](https://www.waze.com/user/editor/${usr.userName})`;
-    if (segment?.roadType) segmentType = roadTypes[segment.roadType];
+    const segment = js.segments.objects.find((s) => s.id === segID);
+    const street = segment?.primaryStreetID
+      && js.streets.objects.find(st => st.id === segment.primaryStreetID);
+    const city = street && js.cities.objects.find(c => c.id === street.cityID);
+    const state = city && js.states.objects.find(s => s.id === city.stateID);
 
-    // ← LOOKUP STREET, CITY & STATE
-    if (segment?.primaryStreetID) {
-      const street = js.streets.objects.find(
-        (st) => st.id === segment.primaryStreetID
-      );
-      if (street) {
-        streetName = street.name || street.englishName || streetName;
-        if (streetName !== null && streetName !== "") location = streetName;
-        const city = js.cities.objects.find((c) => c.id === street.cityID);
-        if (city) {
-          cityName = city.name || city.englishName;
-          if (cityName !== null && cityName !== "") location += `, ${cityName}`;
-          const state = js.states.objects.find((st) => st.id === city.stateID);
-          if (state) {
-            stateName = state.name;
-            if (stateName !== null && stateName !== "")
-              location += `, ${stateName}`;
-          }
-        }
-      }
+    if (usr) featureCache.users[usr.id] = { userName: usr.userName, rank: usr.rank };
+    if (segment) featureCache.segments[segment.id] = { roadType: segment.roadType, primaryStreetID: segment.primaryStreetID };
+    if (street) featureCache.streets[street.id] = { name: street.name||street.englishName, cityID: street.cityID };
+    if (city) featureCache.cities[city.id] = { name: city.name||city.englishName, stateID: city.stateID };
+    if (state) featureCache.states[state.id] = { name: state.name };
+
+    // write back cache
+    fs.writeFileSync(CACHE_PATH, JSON.stringify(featureCache, null, 2));
+
+    // overwrite our local shortcut vars so embed uses fresh data
+    userName = usr
+      ? `[${usr.userName} (${usr.rank})](https://www.waze.com/user/editor/${usr.userName})`
+      : userName;
+    segmentType = segment ? roadTypes[segment.roadType] : segmentType;
+    if (street && city && state) {
+      location = `${street.name||street.englishName}, ${city.name||city.englishName}, ${state.name}`;
     }
-  } catch (e) {
-    console.warn(`Lookup failed: ${e.message} ${featuresUrl}`);
   }
+
   // check location if any keywords from region.locationKeywordsFilter are present
   if (location !== "Unknown") {
     let searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
@@ -265,7 +262,7 @@ async function notifyDiscord({
         return; // exit early if no keywords match
       }
     }
-    location = `[${location}](https://www.google.com/search?q=${searchQuery})`;
+    location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
   }
 
   const envParam =
