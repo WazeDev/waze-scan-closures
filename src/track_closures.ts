@@ -363,10 +363,21 @@ async function notifyDiscord({
   let dotMap;
   if (region.departmentOfTransporationUrl) {
     // if region has a DoT URL, append it to the appUrl
-    dotMap = region.departmentOfTransporationUrl.replaceAll(
-      "{lat}",
-      latStart.toFixed(6)
-    ).replaceAll("{lon}", lonStart.toFixed(6));
+    // Check if the URL contains {lat} and {lon} twice, if so, use bounding box, if not, use start point
+    if (
+      (region.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
+      (region.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
+    ) {
+      dotMap = region.departmentOfTransporationUrl.replaceAll(
+        "{lat}",
+        latStart.toFixed(6)
+      ).replaceAll("{lon}", lonStart.toFixed(6));
+    } else {
+      dotMap = region.departmentOfTransporationUrl.replace(
+        "{lat}",
+        latStart.toFixed(6)
+      ).replace("{lon}", lonStart.toFixed(6));
+    }
   }
   let direction;
   if (forward === true) {
