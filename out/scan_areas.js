@@ -21,11 +21,12 @@ catch (err) {
     }
     process.exit(1);
 }
-if (!regionBoundaries || Object.keys(regionBoundaries).length === 0) {
+if (Object.keys(regionBoundaries).length === 0) {
     console.error('❌ regionBoundaries missing in config.json');
     process.exit(1);
 }
 const COOKIE_PATH = path.resolve(__dirname, "..", "cookies.json");
+const SCAN_RESULTS_PATH = path.resolve(__dirname, "..", "scan_results.json");
 const editorUrl = 'https://waze.com/editor';
 function delay(time = 1000) {
     if (time <= 0) {
@@ -62,8 +63,8 @@ await page.waitForFunction(() => {
         scriptId: 'wme-scan-closures',
         scriptName: 'Waze Scan Closures'
     });
-    console.log('got sdk, loggedIn=', !!sdk?.WmeState?.isLoggedIn());
-    return sdk?.State?.isLoggedIn() === true;
+    console.log('got sdk, loggedIn=', !!sdk.WmeState?.isLoggedIn());
+    return sdk.State?.isLoggedIn() === true;
 }, {
     polling: 1000,
     timeout: 0
@@ -93,19 +94,17 @@ function generateScanQueue() {
         const b = regionBoundaries[region];
         scanUrls[region] = generateCoords(b.xMin, b.xMax, b.yMin, b.yMax)
             .map(c => (`https://www.waze.com/Descartes/app/v1/Features/Closures` +
-            `?bbox=${c.xMin},${c.yMin},${c.xMax},${c.yMax}`));
+            `?bbox=${String(c.xMin)},${String(c.yMin)},${String(c.xMax)},${String(c.yMax)}`));
     }
     return scanUrls;
 }
 let overallStart;
 const scanQueue = generateScanQueue();
 const scanResults = {};
-if (cfg.loop === undefined) {
-    cfg.loop = false;
-}
+cfg.loop ??= false;
 if (cfg.loop) {
     console.log('🔄 Looping enabled, will repeat scans until stopped.');
-    while (cfg.loop) {
+    for (;;) {
         for (const country in scanQueue) {
             scanResults[country] = { closures: [] };
         }
@@ -127,7 +126,7 @@ async function performScan() {
         const total = urls.length;
         for (let idx = 0; idx < total; idx++) {
             const url = urls[idx];
-            console.log(`Visiting [${country}] ${idx + 1}/${total}: ${url}`);
+            console.log(`Visiting [${country}] ${String(idx + 1)}/${String(total)}: ${url}`);
             const reqStart = Date.now();
             let closuresData;
             try {
@@ -138,37 +137,50 @@ async function performScan() {
             }
             catch (err) {
                 if (err instanceof Error) {
-                    console.error(`✖ fetch error (${idx + 1}/${total}):`, err.message);
+                    console.error(`✖ fetch error (${String(idx + 1)}/${String(total)}):`, err.message);
                 }
                 else {
-                    console.error(`✖ fetch error (${idx + 1}/${total}):`, err);
+                    console.error(`✖ fetch error (${String(idx + 1)}/${String(total)}):`, err);
                 }
                 continue;
             }
             const reqDuration = Date.now() - reqStart;
             regionReqSum += reqDuration;
-            console.log(` → request took ${reqDuration}ms/${(reqDuration / 1000).toFixed(1)}s`);
-            const roadClosures = closuresData.roadClosures;
-            console.log(`→ got ${roadClosures.objects.length} roadClosures ` +
-                `for ${country} (${idx + 1}/${total})`);
-            const userClosures = closuresData.roadClosures.objects
-                .filter((c) => !c.reason && c.startDate && c.endDate &&
-                (new Date(c.endDate).getTime() - new Date(c.startDate).getTime()) === 3600000 &&
-                c.createdBy !== 304740435 && c.closureStatus === 'ACTIVE');
-            if (userClosures.length) {
-                console.log(`✔ ${userClosures.length} user closures`);
-                scanResults[country].closures.push(...userClosures);
-                fs.writeFileSync('../scan_results.json', JSON.stringify(scanResults, null, 2));
+            console.log(` → request took ${String(reqDuration)}ms/${(reqDuration / 1000).toFixed(1)}s`);
+            if (typeof closuresData === 'object' &&
+                closuresData !== null &&
+                'roadClosures' in closuresData &&
+                typeof closuresData.roadClosures === 'object' &&
+                closuresData.roadClosures !== null &&
+                typeof closuresData.roadClosures === 'object' &&
+                'objects' in closuresData.roadClosures &&
+                Array.isArray(closuresData.roadClosures.objects)) {
+                const roadClosures = closuresData.roadClosures;
+                console.log(`→ got ${String(roadClosures.objects.length)} roadClosures ` +
+                    `for ${country} (${String(idx + 1)}/${String(total)})`);
+                const userClosures = roadClosures.objects.filter(c => !c.reason &&
+                    c.startDate &&
+                    c.endDate &&
+                    (new Date(c.endDate).getTime() - new Date(c.startDate).getTime()) === 3600000 &&
+                    c.createdBy !== 304740435 &&
+                    c.closureStatus === 'ACTIVE');
+                if (userClosures.length) {
+                    scanResults[country].closures.push(...userClosures);
+                    fs.writeFileSync(SCAN_RESULTS_PATH, JSON.stringify(scanResults, null, 2));
+                }
             }
-            await delay(1000 - reqDuration);
+            else {
+                console.warn('⚠ Unexpected closuresData format:', closuresData);
+            }
+            await delay(Math.max(0, 1000 - reqDuration));
         }
         const regionDuration = Date.now() - regionStart;
         const regionAvg = regionReqSum / total;
-        console.log(`✅ Completed ${country} in ${regionDuration}ms ` +
+        console.log(`✅ Completed ${country} in ${String(regionDuration)}ms ` +
             `(${(regionDuration / 1000).toFixed(1)}s/${(regionDuration / 1000 / 60).toFixed(1)}mins), ` +
             `avg request time ${regionAvg.toFixed(1)}ms`);
     }
     const overallDuration = Date.now() - overallStart;
-    console.log(`🎉 All scans completed in ${overallDuration}ms ` +
+    console.log(`🎉 All scans completed in ${overallDuration.toString()}ms ` +
         `(${(overallDuration / 1000).toFixed(1)}s/${(overallDuration / 1000 / 60).toFixed(1)}mins)`);
 }
