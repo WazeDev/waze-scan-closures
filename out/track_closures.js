@@ -297,8 +297,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
         }
         location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
     }
-    const envParam = country.toLowerCase() === "us" ? "usa" : country.toLowerCase();
-    const editorUrl = `https://www.waze.com/en-US/editor?env=${envParam}` +
+    const editorUrl = `https://www.waze.com/en-US/editor?env=${region.env}` +
         `&lat=${avgLat.toFixed(6)}` +
         `&lon=${avgLon.toFixed(6)}` +
         `&zoomLevel=17&segments=${segID}`;

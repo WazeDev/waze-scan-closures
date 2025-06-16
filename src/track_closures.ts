@@ -107,7 +107,7 @@ function lat2tile(lat: number, zoom: number = previewZoomLevel) {
     ((1 -
       Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) /
       2) *
-      2 ** zoom
+    2 ** zoom
   ));
 }
 
@@ -393,10 +393,8 @@ async function notifyDiscord({
     location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
   }
 
-  const envParam =
-    country.toLowerCase() === "us" ? "usa" : country.toLowerCase();
   const editorUrl =
-    `https://www.waze.com/en-US/editor?env=${envParam}` +
+    `https://www.waze.com/en-US/editor?env=${region.env}` +
     `&lat=${avgLat.toFixed(6)}` +
     `&lon=${avgLon.toFixed(6)}` +
     `&zoomLevel=17&segments=${segID}`;
