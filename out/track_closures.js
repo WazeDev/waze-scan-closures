@@ -66,7 +66,7 @@ const roadTypeColors = {
     17: 0xc0392b,
     18: 0x8e44ad,
     19: 0x2980b9,
-    20: 0x3498db,
+    20: 0x979797,
     22: 0x2ecc71,
 };
 const editorUrl = "https://waze.com/editor";
@@ -211,7 +211,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     const tileUrl = pickTileServer(tileX, tileY);
     const featuresUrl = `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
         `bbox=${adjLon1.toFixed(3)},${adjLat1.toFixed(3)},${adjLon2.toFixed(3)},${adjLat2.toFixed(3)}` +
-        `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
+        `&roadClosures=true&roadTypes=1,2,3,4,6,7,20`;
     const uc = featureCache.users[userId];
     let sc = featureCache.segments[segID];
     let streetID = sc?.primaryStreetID;

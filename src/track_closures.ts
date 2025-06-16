@@ -83,7 +83,7 @@ const roadTypeColors = {
   17: 0xc0392b, // Private Road
   18: 0x8e44ad, // Railroad
   19: 0x2980b9, // Runway
-  20: 0x3498db, // Parking Lot Road
+  20: 0x979797, // Parking Lot Road
   22: 0x2ecc71, // Passageway
 };
 const editorUrl = "https://waze.com/editor";
@@ -292,7 +292,7 @@ async function notifyDiscord({
     `bbox=${adjLon1.toFixed(3)},${adjLat1.toFixed(3)},${adjLon2.toFixed(
       3
     )},${adjLat2.toFixed(3)}` +
-    `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
+    `&roadClosures=true&roadTypes=1,2,3,4,6,7,20`;
   // first check cache
   const uc = featureCache.users[userId];
   let sc = featureCache.segments[segID];
