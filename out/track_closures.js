@@ -111,7 +111,7 @@ let tracked = {};
 if (fs.existsSync(TRACK_FILE)) {
     tracked = JSON.parse(fs.readFileSync(TRACK_FILE, "utf8"));
 }
-const CACHE_PATH = path.resolve(__dirname, "feature_cache.json");
+const CACHE_PATH = path.resolve(__dirname, "..", "feature_cache.json");
 let featureCache;
 if (fs.existsSync(CACHE_PATH)) {
     featureCache = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
