@@ -92,8 +92,18 @@ function generateScanQueue() {
     const scanUrls = {};
     for (const region in regionBoundaries) {
         const b = regionBoundaries[region];
+        let envPrefix;
+        if (b.env === 'row') {
+            envPrefix = "row-";
+        }
+        else if (b.env === 'il') {
+            envPrefix = "il-";
+        }
+        else {
+            envPrefix = "";
+        }
         scanUrls[region] = generateCoords(b.xMin, b.xMax, b.yMin, b.yMax)
-            .map(c => (`https://www.waze.com/Descartes/app/v1/Features/Closures` +
+            .map(c => (`https://www.waze.com/${envPrefix}Descartes/app/v1/Features/Closures` +
             `?bbox=${String(c.xMin)},${String(c.yMin)},${String(c.xMax)},${String(c.yMax)}`));
     }
     return scanUrls;

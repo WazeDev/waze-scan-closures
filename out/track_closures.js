@@ -164,7 +164,17 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     const adjLat1 = +latStart.toFixed(2) + 0.01;
     const adjLon2 = +lonEnd.toFixed(2) - 0.01;
     const adjLat2 = +latEnd.toFixed(2) - 0.01;
-    const featuresUrl = `https://www.waze.com/Descartes/app/Features?` +
+    let envPrefix;
+    if (region.env === 'row') {
+        envPrefix = "row-";
+    }
+    else if (region.env === 'il') {
+        envPrefix = "il-";
+    }
+    else {
+        envPrefix = "";
+    }
+    const featuresUrl = `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
         `bbox=${adjLon1.toFixed(2)},${adjLat1.toFixed(2)},${adjLon2.toFixed(2)},${adjLat2.toFixed(2)}` +
         `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
     const uc = featureCache.users[userId];
