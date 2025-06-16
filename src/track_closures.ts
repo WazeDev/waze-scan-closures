@@ -313,7 +313,7 @@ async function notifyDiscord({
 
   // if anything missing in cache, do one fetch and populate cache
   if (!uc || !sc || !stc || !cc || !stt) {
-    console.log(`Fetching closure details ${id} (${country})…`);
+    console.log(`Fetching closure details ${id} (${country}) ${featuresUrl}`);
     const reqStart = Date.now();
     const res = await fetch(featuresUrl, {
       headers: { Cookie: cookieHeader }
