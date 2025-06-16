@@ -224,8 +224,15 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
         const stt2 = cc2 && featureCache.states[cc2.stateID];
         userName = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
         segmentType = sc2 ? roadTypes[sc2.roadType] : segmentType;
-        if (stc2 && cc2 && stt2) {
-            location = `${stc2.name}, ${cc2.name}, ${stt2.name}`;
+        if (stc2) {
+            const parts = [];
+            if (stc2.name)
+                parts.push(stc2.name);
+            if (cc2?.name)
+                parts.push(cc2.name);
+            if (stt2?.name)
+                parts.push(stt2.name);
+            location = parts.join(", ");
         }
         sc = sc2;
     }

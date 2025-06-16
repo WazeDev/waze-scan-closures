@@ -308,8 +308,12 @@ async function notifyDiscord({
     // overwrite your variables for userName, segmentType, location…
     userName    = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
     segmentType = sc2 ? roadTypes[sc2.roadType as keyof typeof roadTypes] : segmentType;
-    if (stc2 && cc2 && stt2) {
-      location = `${stc2.name}, ${cc2.name}, ${stt2.name}`;
+    if (stc2) {
+      const parts: string[] = [];
+      if (stc2.name) parts.push(stc2.name);
+      if (cc2?.name) parts.push(cc2.name);
+      if (stt2?.name) parts.push(stt2.name);
+      location = parts.join(", ");
     }
 
     // ← now that we have a fresh segment, overwrite sc so embed.color works
