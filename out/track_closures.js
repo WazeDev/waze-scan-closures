@@ -299,12 +299,12 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     }
     const envParam = country.toLowerCase() === "us" ? "usa" : country.toLowerCase();
     const editorUrl = `https://www.waze.com/en-US/editor?env=${envParam}` +
-        `&lat=${latStart.toFixed(6)}` +
-        `&lon=${lonStart.toFixed(6)}` +
+        `&lat=${avgLat.toFixed(6)}` +
+        `&lon=${avgLon.toFixed(6)}` +
         `&zoomLevel=17&segments=${segID}`;
     const liveMapUrl = `https://www.waze.com/live-map/directions?to=ll.` +
-        `${latStart.toFixed(6)}%2C${lonStart.toFixed(6)}`;
-    const appUrl = `https://www.waze.com/ul?ll=${latStart.toFixed(6)},${lonStart.toFixed(6)}`;
+        `${avgLat.toFixed(6)}%2C${avgLon.toFixed(6)}`;
+    const appUrl = `https://www.waze.com/ul?ll=${avgLat.toFixed(6)},${avgLon.toFixed(6)}`;
     let dotMap;
     if (region.departmentOfTransporationUrl) {
         if ((region.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
@@ -312,7 +312,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
             dotMap = region.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
         }
         else {
-            dotMap = region.departmentOfTransporationUrl.replace("{lat}", latStart.toFixed(6)).replace("{lon}", lonStart.toFixed(6));
+            dotMap = region.departmentOfTransporationUrl.replace("{lat}", avgLat.toFixed(6)).replace("{lon}", avgLon.toFixed(6));
         }
     }
     let direction;

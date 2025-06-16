@@ -397,15 +397,15 @@ async function notifyDiscord({
     country.toLowerCase() === "us" ? "usa" : country.toLowerCase();
   const editorUrl =
     `https://www.waze.com/en-US/editor?env=${envParam}` +
-    `&lat=${latStart.toFixed(6)}` +
-    `&lon=${lonStart.toFixed(6)}` +
+    `&lat=${avgLat.toFixed(6)}` +
+    `&lon=${avgLon.toFixed(6)}` +
     `&zoomLevel=17&segments=${segID}`;
   const liveMapUrl =
     `https://www.waze.com/live-map/directions?to=ll.` +
-    `${latStart.toFixed(6)}%2C${lonStart.toFixed(6)}`;
-  const appUrl = `https://www.waze.com/ul?ll=${latStart.toFixed(
+    `${avgLat.toFixed(6)}%2C${avgLon.toFixed(6)}`;
+  const appUrl = `https://www.waze.com/ul?ll=${avgLat.toFixed(
     6
-  )},${lonStart.toFixed(6)}`;
+  )},${avgLon.toFixed(6)}`;
   let dotMap;
   if (region.departmentOfTransporationUrl) {
     // if region has a DoT URL, append it to the appUrl
@@ -418,8 +418,8 @@ async function notifyDiscord({
     } else {
       dotMap = region.departmentOfTransporationUrl.replace(
         "{lat}",
-        latStart.toFixed(6)
-      ).replace("{lon}", lonStart.toFixed(6));
+        avgLat.toFixed(6)
+      ).replace("{lon}", avgLon.toFixed(6));
     }
   }
   let direction;
