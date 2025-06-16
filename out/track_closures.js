@@ -274,7 +274,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     if (region.departmentOfTransporationUrl) {
         if ((region.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
             (region.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2) {
-            dotMap = region.departmentOfTransporationUrl.replaceAll("{lat}", latStart.toFixed(6)).replaceAll("{lon}", lonStart.toFixed(6));
+            dotMap = region.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6).replace("{lat}", adjLat2.toFixed(6))).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
         }
         else {
             dotMap = region.departmentOfTransporationUrl.replace("{lat}", latStart.toFixed(6)).replace("{lon}", lonStart.toFixed(6));

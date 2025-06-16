@@ -233,13 +233,13 @@ async function notifyDiscord({
   const adjLat2 = +latEnd.toFixed(2) - 0.01;
 
   let envPrefix: string;
-    if (region.env === 'row') {
-      envPrefix = "row-";
-    } else if (region.env === 'il') {
-      envPrefix = "il-";
-    } else { 
-      envPrefix = "";
-    }
+  if (region.env === 'row') {
+    envPrefix = "row-";
+  } else if (region.env === 'il') {
+    envPrefix = "il-";
+  } else {
+    envPrefix = "";
+  }
 
   const featuresUrl =
     `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
@@ -315,11 +315,11 @@ async function notifyDiscord({
     const uc2 = featureCache.users[userId];
     const sc2 = featureCache.segments[segID];
     const stc2 = sc2 && featureCache.streets[sc2.primaryStreetID];
-    const cc2  = stc2 && featureCache.cities[stc2.cityID];
-    const stt2 = cc2  && featureCache.states[cc2.stateID];
+    const cc2 = stc2 && featureCache.cities[stc2.cityID];
+    const stt2 = cc2 && featureCache.states[cc2.stateID];
 
     // overwrite your variables for userName, segmentType, location…
-    userName    = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
+    userName = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
     segmentType = sc2 ? roadTypes[sc2.roadType as keyof typeof roadTypes] : segmentType;
     if (stc2) {
       const parts: string[] = [];
@@ -368,10 +368,13 @@ async function notifyDiscord({
       (region.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
       (region.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
     ) {
-      dotMap = region.departmentOfTransporationUrl.replaceAll(
+      dotMap = region.departmentOfTransporationUrl.replace(
         "{lat}",
-        latStart.toFixed(6)
-      ).replaceAll("{lon}", lonStart.toFixed(6));
+        adjLat1.toFixed(6).replace("{lat}", adjLat2.toFixed(6))
+      ).replace("{lon}", adjLon1.toFixed(6)).replace(
+        "{lon}",
+        adjLon2.toFixed(6)
+      );
     } else {
       dotMap = region.departmentOfTransporationUrl.replace(
         "{lat}",
