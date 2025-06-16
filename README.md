@@ -9,6 +9,7 @@ Scans for Waze map closures and sends Discord notifications when new closures ar
 - Saves raw closure data to `scan_results.json`  
 - Tracks already-reported closures in `closure_tracking.json`  
 - Sends rich embeds to Discord via webhook when new closures appear  
+- Caches Waze entities (users, segments, streets, cities, states) in `feature_cache.json` to reduce API requests  
 
 ## Prerequisites
 
@@ -21,7 +22,9 @@ Scans for Waze map closures and sends Discord notifications when new closures ar
 git clone https://github.com/WazeDev/waze-scan-closures.git
 cd waze-scan-closures
 npm install
-npm run build
+npm run build          # compile TypeScript to JavaScript in out/
+npm run scan           # run a single closure scan
+npm run track          # start tracking new closures and notify Discord
 ```
 
 ## Configuration
@@ -41,9 +44,7 @@ This script logs into WME, generates scan URLs, and writes results to `scan_resu
 npm run scan
 ```
 
-- [scan_areas.js](scan_areas.js)  
-- Generates scan queue based on `countryBoundaries` in the script.  
-- Outputs `scan_results.json`.  
+- Uses `out/scan_areas.js`  
 
 ### 2. Track new closures & notify Discord
 
@@ -53,20 +54,25 @@ This script watches `scan_results.json` for changes, identifies new closures, an
 npm run track
 ```
 
-- [track_closures.js](track_closures.js)  
-- Reads `scan_results.json` and updates `closure_tracking.json`.  
-- Sends Discord webhook notifications.  
+- Uses `out/track_closures.js`  
 
 ## Project Structure
 
 ```text
-├── .env.example           # Environment variable template
-├── .gitignore             # Files to ignore in Git
-├── LICENSE                # MIT License
-├── package.json           # NPM metadata & scripts
-├── scan_areas.js          # Scan script for closures
-├── track_closures.js      # Tracking & Discord notification script
-└── README.md              # This file
+├── config.json.example       # Template for your config
+├── config.json               # Your configured values (copy from example)
+├── feature_cache.json        # Auto-generated cache of Waze feature metadata
+├── scan_results.json         # Raw scan output
+├── closure_tracking.json     # Tracks already reported closures
+├── package.json              # NPM metadata & scripts
+├── tsconfig.json             # TypeScript configuration
+├── src/                      # TypeScript sources
+│   ├── scan_areas.ts
+│   └── track_closures.ts
+├── out/                      # Compiled JavaScript
+│   ├── scan_areas.js
+│   └── track_closures.js
+└── README.md                 # Documentation
 ```
 
 ## License
