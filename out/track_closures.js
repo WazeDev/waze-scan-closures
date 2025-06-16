@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
 import { fileURLToPath } from "url";
+const URL_HASH_FACTOR = (Math.sqrt(5) - 1) / 2;
+const previewZoomLevel = 18;
 const COOKIE_PATH = "cookies.json";
 if (!fs.existsSync(COOKIE_PATH)) {
     fs.writeFileSync(COOKIE_PATH, JSON.stringify([], null, 2), "utf8");
@@ -23,6 +25,12 @@ catch (err) {
     }
     process.exit(1);
 }
+const tileServers = [
+    "https://editor-tiles-na-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+    "https://editor-tiles-na-2.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+    "https://editor-tiles-na-3.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+    "https://editor-tiles-na-4.waze.com/tiles/roads/${z}/${x}/${y}/tile.png"
+];
 const roadTypes = {
     1: "Street",
     2: "Primary Street",
@@ -69,6 +77,28 @@ function delay(time = 1000) {
     return new Promise(function (resolve) {
         setTimeout(resolve, time);
     });
+}
+function lon2tile(lon, zoom = previewZoomLevel) {
+    return String(Math.floor(((lon + 180) / 360) * 2 ** zoom));
+}
+function lat2tile(lat, zoom = previewZoomLevel) {
+    const rad = (lat * Math.PI) / 180;
+    return String(Math.floor(((1 -
+        Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) /
+        2) *
+        2 ** zoom));
+}
+function pickTileServer(x, y, t = tileServers) {
+    let n = 1;
+    let e = `${x}${y}`;
+    for (let i = 0; i < e.length; i++) {
+        n *= e.charCodeAt(i) * URL_HASH_FACTOR;
+        n -= Math.floor(n);
+    }
+    const idx = Math.floor(n * t.length);
+    let tileServer = t[idx];
+    let url = tileServer.replace("${x}", x).replace("${y}", y).replace("${z}", previewZoomLevel.toString());
+    return url;
 }
 const browser = await puppeteer.launch({
     headless: false,
@@ -157,13 +187,15 @@ async function updateTracking() {
 }
 async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, timestamp, forward, location = "Unknown", reason = "No Reason Selected", segmentType = "Unknown", }) {
     const coords = geometry.coordinates;
+    const avgLon = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length;
+    const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length;
     const [lonStart, latStart] = coords[0];
     const [lonEnd, latEnd] = coords[coords.length - 1];
     const region = cfg.regionBoundaries[country];
-    const adjLon1 = +lonStart.toFixed(2) + 0.01;
-    const adjLat1 = +latStart.toFixed(2) + 0.01;
-    const adjLon2 = +lonEnd.toFixed(2) - 0.01;
-    const adjLat2 = +latEnd.toFixed(2) - 0.01;
+    const adjLon1 = +avgLon.toFixed(3) + 0.005;
+    const adjLat1 = +avgLat.toFixed(3) + 0.005;
+    const adjLon2 = +avgLon.toFixed(3) - 0.005;
+    const adjLat2 = +avgLat.toFixed(3) - 0.005;
     let envPrefix;
     if (region.env === 'row') {
         envPrefix = "row-";
@@ -174,8 +206,11 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     else {
         envPrefix = "";
     }
+    const tileX = lon2tile(avgLon, previewZoomLevel);
+    const tileY = lat2tile(avgLat, previewZoomLevel);
+    const tileUrl = pickTileServer(tileX, tileY);
     const featuresUrl = `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
-        `bbox=${adjLon1.toFixed(2)},${adjLat1.toFixed(2)},${adjLon2.toFixed(2)},${adjLat2.toFixed(2)}` +
+        `bbox=${adjLon1.toFixed(3)},${adjLat1.toFixed(3)},${adjLon2.toFixed(3)},${adjLat2.toFixed(3)}` +
         `&roadClosures=true&roadTypes=1,2,3,4,6,7`;
     const uc = featureCache.users[userId];
     let sc = featureCache.segments[segID];
@@ -314,6 +349,9 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                     `[App Link](${appUrl})`,
             },
         ],
+        image: {
+            url: tileUrl,
+        },
     };
     if (region.departmentOfTransporationUrl) {
         embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
