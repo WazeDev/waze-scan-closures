@@ -232,6 +232,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
         ? featureCache.countries[cc.countryID]
         : undefined;
     let userName = uc ? `[${uc.userName} (${uc.rank})](https://www.waze.com/user/editor/${uc.userName})` : userId;
+    let slackUsername = uc ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>` : userId;
     segmentType = sc ? roadTypes[sc.roadType] : "Unknown";
     if (stc) {
         const names = [stc.name || stc.englishName];
@@ -294,6 +295,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
         const stt2 = cc2 && featureCache.states[cc2.stateID];
         const ctry2 = cc2 && featureCache.countries[cc2.countryID];
         userName = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
+        slackUsername = uc2 ? `<https://www.waze.com/user/editor/${uc2.userName}|${uc2.userName} (${uc2.rank})>` : userName;
         segmentType = sc2 ? roadTypes[sc2.roadType] : segmentType;
         if (stc2) {
             const parts = [];
@@ -415,9 +417,6 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
         }
         else if (hook.type === "slack") {
             console.log(`Sending a closure notification to Slack (${country})…`);
-            const slackUserName = uc
-                ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>`
-                : userId;
             const locationMatch = location.match(/\[([^\]]+)\]\(([^)]+)\)/);
             const locationText = locationMatch ? locationMatch[1] : location;
             const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
@@ -429,7 +428,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                     type: "section",
                     text: {
                         type: "mrkdwn",
-                        text: `*New App Closure (${direction})*\n*User*\n${slackUserName}`
+                        text: `*New App Closure (${direction})*\n*User*\n${slackUsername}`
                     },
                     accessory: {
                         type: "image",

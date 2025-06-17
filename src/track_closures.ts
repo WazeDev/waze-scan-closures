@@ -315,6 +315,7 @@ async function notifyDiscord({
     : undefined;
 
   let userName = uc ? `[${uc.userName} (${uc.rank})](https://www.waze.com/user/editor/${uc.userName})` : userId;
+  let slackUsername = uc ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>` : userId;
   segmentType = sc ? roadTypes[sc.roadType as keyof typeof roadTypes] : "Unknown";
 
   if (stc) {
@@ -388,6 +389,7 @@ async function notifyDiscord({
 
     // overwrite your variables for userName, segmentType, location…
     userName = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
+    slackUsername = uc2 ? `<https://www.waze.com/user/editor/${uc2.userName}|${uc2.userName} (${uc2.rank})>` : userName;
     segmentType = sc2 ? roadTypes[sc2.roadType as keyof typeof roadTypes] : segmentType;
     if (stc2) {
       const parts: string[] = [];
@@ -522,10 +524,6 @@ async function notifyDiscord({
       }
     } else if (hook.type === "slack") {
       console.log(`Sending a closure notification to Slack (${country})…`);
-      // build Slack-compatible username link
-      const slackUserName = uc
-        ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>`
-        : userId;
       // extract plain location text from markdown link
       const locationMatch = location.match(/\[([^\]]+)\]\(([^)]+)\)/);
       const locationText = locationMatch ? locationMatch[1] : location;
@@ -539,7 +537,7 @@ async function notifyDiscord({
            type: "section",
            text: {
              type: "mrkdwn",
-             text: `*New App Closure (${direction})*\n*User*\n${slackUserName}`
+             text: `*New App Closure (${direction})*\n*User*\n${slackUsername}`
            },
            accessory: {
              type: "image",
