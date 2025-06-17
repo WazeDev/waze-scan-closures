@@ -438,7 +438,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                     fields: [
                         {
                             type: "mrkdwn",
-                            text: `*Reported At*\n<t:${(timestamp / 1000).toFixed(0)}:F>`
+                            text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}>`
                         }
                     ]
                 },
