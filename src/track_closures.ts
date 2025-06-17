@@ -499,14 +499,6 @@ async function notifyDiscord({
 		url: tileUrl,
 	},
   };
-  // include Country ID if available for this city
-  if (cc?.countryID) {
-    embed.fields.splice(4, 0, {
-      name: "Country ID",
-      value: cc.countryID.toString(),
-      inline: true,
-    });
-  }
 
   if (region.departmentOfTransporationUrl) {
     embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;

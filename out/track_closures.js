@@ -393,13 +393,6 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
             url: tileUrl,
         },
     };
-    if (cc?.countryID) {
-        embed.fields.splice(4, 0, {
-            name: "Country ID",
-            value: cc.countryID.toString(),
-            inline: true,
-        });
-    }
     if (region.departmentOfTransporationUrl) {
         embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
     }
