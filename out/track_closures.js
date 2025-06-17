@@ -462,7 +462,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                     fields: [
                         {
                             type: "mrkdwn",
-                            text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${region.departmentOfTransporationUrl ? ` | <${dotMap}|DOT Map>` : ""}`
+                            text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${region.departmentOfTransporationUrl ? ` | <${dotMap}|Department of Transportation Map Link>` : ""}`
                         }
                     ]
                 }
