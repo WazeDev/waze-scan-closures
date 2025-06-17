@@ -306,6 +306,7 @@ async function notifyDiscord({
   const uc = featureCache.users[userId];
   let sc = featureCache.segments[segID];
   let streetID = sc?.primaryStreetID;
+  let slackLocation;
   const stc = streetID && featureCache.streets[streetID];
   const cc = stc && featureCache.cities[stc.cityID];
   const stt = cc && featureCache.states[cc.stateID];
@@ -432,6 +433,7 @@ async function notifyDiscord({
         }
       }
     }
+    slackLocation = `<(https://www.google.com/search?q=${searchQuery}&udm=50)|${location}>`;
     location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
   }
 
@@ -524,15 +526,7 @@ async function notifyDiscord({
       }
     } else if (hook.type === "slack") {
       console.log(`Sending a closure notification to Slack (${country})…`);
-      // extract plain location text from markdown link
-      const locationMatch = location.match(/\[([^\]]+)\]\(([^)]+)\)/);
-      const locationText = locationMatch ? locationMatch[1] : location;
-      // build Google search URL for location
-      const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
-      const searchQuery = encodeURIComponent(`${locationText} ${searchParams}`);
-      const searchUrl = `https://www.google.com/search?q=${searchQuery}&udm=50`;
-      const slackLocation = `<${searchUrl}|${locationText}>`;
-       const slackBlocks = [
+      const slackBlocks = [
          {
            type: "section",
            text: {

@@ -225,6 +225,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
     const uc = featureCache.users[userId];
     let sc = featureCache.segments[segID];
     let streetID = sc?.primaryStreetID;
+    let slackLocation;
     const stc = streetID && featureCache.streets[streetID];
     const cc = stc && featureCache.cities[stc.cityID];
     const stt = cc && featureCache.states[cc.stateID];
@@ -338,6 +339,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                 }
             }
         }
+        slackLocation = `<(https://www.google.com/search?q=${searchQuery}&udm=50)|${location}>`;
         location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
     }
     const editorUrl = `https://www.waze.com/en-US/editor?env=${region.env}` +
@@ -417,12 +419,6 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
         }
         else if (hook.type === "slack") {
             console.log(`Sending a closure notification to Slack (${country})…`);
-            const locationMatch = location.match(/\[([^\]]+)\]\(([^)]+)\)/);
-            const locationText = locationMatch ? locationMatch[1] : location;
-            const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
-            const searchQuery = encodeURIComponent(`${locationText} ${searchParams}`);
-            const searchUrl = `https://www.google.com/search?q=${searchQuery}&udm=50`;
-            const slackLocation = `<${searchUrl}|${locationText}>`;
             const slackBlocks = [
                 {
                     type: "section",
