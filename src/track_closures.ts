@@ -504,39 +504,94 @@ async function notifyDiscord({
     embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
   }
 
-  // 4) send to Discord
-  try {
-    console.log(`Sending a closure notification to Discord (${country})…`);
-    // time the request so we can throttle to ~1 req/sec
-    const res = await fetch(region.discordWebhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds: [embed] }),
-    });
-
-    switch (res.status) {
-      case 204:
+  // 4) send to webhooks
+  const webhooks = region.webhooks || [];
+  for (const hook of webhooks) {
+    if (hook.type === "discord") {
+      console.log(`Sending a closure notification to Discord (${country})…`);
+      const res = await fetch(hook.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ embeds: [embed] }),
+      });
+      if (res.status === 204) {
         console.log("Discord notification sent successfully.");
-        break;
-      case 429:
-        console.error("Discord rate limit exceeded, retry later.");
-      case 400:
-        const errorText = await res.text();
-        console.error(`Embed data is invalid: ${errorText}`);
-        return; // exit early on bad request
-      default:
+      } else {
         const text = await res.text();
-        console.error(
-          `Discord webhook request failed (${res.status}): ${text}`
-        );
-    }
-  } catch (e) {
-    if (e instanceof Error) {
-      console.error("Discord webhook error:", e.message);
+        console.error(`Discord webhook request failed (${res.status}): ${text}`);
+      }
+    } else if (hook.type === "slack") {
+      console.log(`Sending a closure notification to Slack (${country})…`);
+      // build Slack-compatible username link
+      const slackUserName = uc
+        ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>`
+        : userId;
+      // convert location Markdown link [text](url) to Slack format <url|text>
+      const slackLocation = location.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<$2|$1>');
+       const slackBlocks = [
+         {
+           type: "section",
+           text: {
+             type: "mrkdwn",
+             text: `*New App Closure (${direction})*\n*User*\n${slackUserName}`
+           },
+           accessory: {
+             type: "image",
+             image_url: tileUrl,
+             alt_text: "Tile preview"
+           }
+         },
+         {
+           type: "section",
+           block_id: "reportedAt",
+           fields: [
+             {
+               type: "mrkdwn",
+               text: `*Reported At*\n<t:${(timestamp/1000).toFixed(0)}:F>`
+             }
+           ]
+         },
+         {
+           type: "section",
+           block_id: "segmentLocation",
+           fields: [
+             {
+               type: "mrkdwn",
+               text: `*Segment Type*\n${segmentType}`
+             },
+             {
+               type: "mrkdwn",
+               text: `*Location*\n${slackLocation}`
+             }
+           ]
+         },
+         {
+           type: "section",
+           block_id: "links",
+           fields: [
+             {
+               type: "mrkdwn",
+               text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${region.departmentOfTransporationUrl ? ` | <${dotMap}|DOT Map>` : ""}`
+             }
+           ]
+         }
+       ];
+      const slackRes = await fetch(hook.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocks: slackBlocks }),
+      });
+      if (slackRes.ok) {
+        console.log("Slack notification sent successfully.");
+      } else {
+        const text = await slackRes.text();
+        console.error(`Slack webhook request failed (${slackRes.status}): ${text}`);
+      }
     } else {
-      console.error("Discord webhook error:", String(e));
+      console.warn(`Unknown webhook type: ${hook.type}`);
     }
   }
+  return;
 }
 
 // Initial run & watch

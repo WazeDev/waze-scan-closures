@@ -8,7 +8,12 @@
       "env": "",
       "locationKeywordsFilter": ["KEYWORDS_HERE"],
       "departmentOfTransporationUrl": "DOT_URL_HERE_USE_{lat}_FOR_LATITUDE_USE_{lon}_FOR_LONGITUDE",
-      "discordWebhookUrl": "WEBHOOK_URL_HERE_FOR_DISCORD"
+      "webhooks": [
+        {
+          "url": "EXAMPLE_WEBHOOK",
+          "type": "DISCORD_OR_SLACK"
+        }
+      ]
     }
   },
   "loop": false
