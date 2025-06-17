@@ -526,8 +526,14 @@ async function notifyDiscord({
       const slackUserName = uc
         ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>`
         : userId;
-      // convert location Markdown link [text](url) to Slack format <url|text>
-      const slackLocation = location.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<$2|$1>');
+      // extract plain location text from markdown link
+      const locationMatch = location.match(/\[([^\]]+)\]\(([^)]+)\)/);
+      const locationText = locationMatch ? locationMatch[1] : location;
+      // build Google search URL for location
+      const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+      const searchQuery = encodeURIComponent(`${locationText} ${searchParams}`);
+      const searchUrl = `https://www.google.com/search?q=${searchQuery}&udm=50`;
+      const slackLocation = `<${searchUrl}|${locationText}>`;
        const slackBlocks = [
          {
            type: "section",
@@ -547,7 +553,7 @@ async function notifyDiscord({
            fields: [
              {
                type: "mrkdwn",
-               text: `*Reported At*\n<!date^${(timestamp/1000).toFixed(0)}^{date_long} {time}>`
+               text: `*Reported At*\n<!date^${(timestamp/1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>`
              }
            ]
          },

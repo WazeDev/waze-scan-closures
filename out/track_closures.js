@@ -418,7 +418,12 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
             const slackUserName = uc
                 ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>`
                 : userId;
-            const slackLocation = location.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<$2|$1>');
+            const locationMatch = location.match(/\[([^\]]+)\]\(([^)]+)\)/);
+            const locationText = locationMatch ? locationMatch[1] : location;
+            const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+            const searchQuery = encodeURIComponent(`${locationText} ${searchParams}`);
+            const searchUrl = `https://www.google.com/search?q=${searchQuery}&udm=50`;
+            const slackLocation = `<${searchUrl}|${locationText}>`;
             const slackBlocks = [
                 {
                     type: "section",
@@ -438,7 +443,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                     fields: [
                         {
                             type: "mrkdwn",
-                            text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}>`
+                            text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>`
                         }
                     ]
                 },
