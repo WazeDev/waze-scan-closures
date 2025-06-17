@@ -339,7 +339,7 @@ async function notifyDiscord({ id, country, geometry, segID, userId, trust = 0, 
                 }
             }
         }
-        slackLocation = `<(https://www.google.com/search?q=${searchQuery}&udm=50)|${location}>`;
+        slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
         location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
     }
     const editorUrl = `https://www.waze.com/en-US/editor?env=${region.env}` +

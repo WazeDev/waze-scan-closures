@@ -433,7 +433,7 @@ async function notifyDiscord({
         }
       }
     }
-    slackLocation = `<(https://www.google.com/search?q=${searchQuery}&udm=50)|${location}>`;
+    slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
     location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
   }
 
