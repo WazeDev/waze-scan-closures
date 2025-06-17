@@ -13,7 +13,7 @@ declare global {
 
 const URL_HASH_FACTOR = (Math.sqrt(5) - 1) / 2;
 
-const previewZoomLevel = 18;
+const previewZoomLevel = 17;
 
 const COOKIE_PATH = "cookies.json";
 
