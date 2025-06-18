@@ -50,7 +50,7 @@
 
     function updateRoadClosures() {
         let currentUserReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
-        if (userReportedClosures.length !== currentUserReportedClosures.length && currentUserReportedClosures.length !== 0) {
+        if (currentUserReportedClosures.length !== 0) {
             userReportedClosures = currentUserReportedClosures;
             console.log(`Waze Scan Closures: Found ${userReportedClosures.length} user reported closures!`)
             userReportedClosures.forEach((i) => {
@@ -74,6 +74,8 @@
             });
             console.log(userReportedClosures);
             //sendClosures();
+        } else {
+            console.log(`Waze Scan Closures: No new closures found...`)
         }
     }
 
