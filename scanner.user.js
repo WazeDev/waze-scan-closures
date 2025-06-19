@@ -70,7 +70,7 @@
             url: endpoints["TRACKED_CLOSURES"],
             onload: function (response) {
                 let trkRes = JSON.parse(response.responseText);
-                trackedClosures = trkRes.closures;
+                trackedClosures = trkRes;
             }
         };
         GM_xmlhttpRequest(details);
@@ -147,5 +147,6 @@
             }
         };
         GM_xmlhttpRequest(details);
+        getTrackedClosures();
     }
 })();
