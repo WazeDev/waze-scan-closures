@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.3
+// @version      0.0.5
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -10,44 +10,88 @@
 // @exclude      https://www.waze.com/discuss/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=waze.com
 // @license      MIT
-// @grant        none
+// @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
+// @connect      localhost
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
-    window.SDK_INITIALIZED.then(init);
+    unsafeWindow.SDK_INITIALIZED.then(init);
     let sdk;
     let userReportedClosures = [];
     let trackedClosures = [];
-    let url = "";
-    let endpoints = {"TRACKED_CLOSURES": `${url}/trackedClosures`, "UPLOAD_CLOSURES": `${url}/uploadClosures`}
+    let password = localStorage.getItem("waze-scan-closures-password") || password;
+    let url = localStorage.getItem("waze-scan-closures-url") || url;
+    let endpoints = { "TRACKED_CLOSURES": `${url}/trackedClosures?pw=${password}`, "UPLOAD_CLOSURES": `${url}/uploadClosures?pw=${password}` }
 
     function init() {
-        sdk = window.getWmeSdk({
+        sdk = unsafeWindow.getWmeSdk({
             scriptId: 'wme-scan-closures',
             scriptName: 'Waze Scan Closures'
         });
         sdk.Events.on({
             eventName: "wme-map-data-loaded",
             eventHandler: updateRoadClosures
-        })
+        });
         userReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
-        console.log(`Waze Scan Closures: Initalized!`);
+        sdk.Sidebar.registerScriptTab().then(async (res) => {
+            res.tabLabel.innerText = "Waze Scan Closures";
+            // Create two text areas for inputting url and password, update both variables when value changes
+            res.tabPane.innerHTML = `
+                <div>
+                    <label for="WSCApiUrl">API URL:</label>
+                    <input type="text" id="WSCApiUrl" value="${url}" style="width: 100%;" />
+                </div>
+                <div>
+                    <label for="WSCApiPw">API Password:</label>
+                    <input type="text" id="WSCApiPw" value="${password}" style="width: 100%;" />
+                </div>
+            `;
+            res.tabPane.querySelector("#WSCApiUrl").addEventListener("input", (e) => {
+                url = e.target.value;
+                localStorage.setItem("waze-scan-closures-url", url);
+                endpoints["TRACKED_CLOSURES"] = `${url}/trackedClosures?pw=${password}`;
+                endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures?pw=${password}`;
+            });
+            res.tabPane.querySelector("#WSCApiPw").addEventListener("input", (e) => {
+                password = e.target.value;
+                localStorage.setItem("waze-scan-closures-password", password);
+                endpoints["TRACKED_CLOSURES"] = `${url}/trackedClosures?pw=${password}`;
+                endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures?pw=${password}`;
+            });
+        });
+        console.log(`Waze Scan Closures: Initialized!`);
     }
-    async function getTrackedClosures() {
-         let trkReq = await fetch(endpoints["TRACKED_CLOSURES"]);
-         let trkRes = await trkReq.json()
-         trackedClosures = trkRes.closures;
+    function getTrackedClosures() {
+        // use GM_xmlhttpRequest(details)
+        let details = {
+            method: "GET",
+            url: endpoints["TRACKED_CLOSURES"],
+            onload: function (response) {
+                let trkRes = JSON.parse(response.responseText);
+                trackedClosures = trkRes.closures;
+            }
+        };
+        GM_xmlhttpRequest(details);
     }
     function filterUserClosures(closures) {
-    return closures.filter(c =>
-        !c.description &&
-        c.startDate &&
-        c.endDate &&
-        (new Date(c.endDate).getTime() - new Date(c.startDate).getTime()) === 3600000 && !trackedClosures.includes(c.id)
-      );
+        return closures.filter(c =>
+            !c.description &&
+            c.startDate &&
+            c.endDate &&
+            (new Date(c.endDate).getTime() - new Date(c.startDate).getTime()) === 3600000 && !trackedClosures.includes(c.id)
+        );
     }
+    var removeObjectProperties = function (obj, props) {
 
+        for (var i = 0; i < props.length; i++) {
+            if (obj.hasOwnProperty(props[i])) {
+                delete obj[props[i]];
+            }
+        }
+
+    };
     function updateRoadClosures() {
         let currentUserReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
         if (currentUserReportedClosures.length !== 0) {
@@ -57,35 +101,51 @@
                 let location = []
                 // Locally store tracked closures
                 trackedClosures.push(i.id)
-                if (i.segmentId !== null) i.segment = sdk.DataModel.Segments.getById({segmentId: i.segmentId});
+                if (i.segmentId !== null) i.segment = sdk.DataModel.Segments.getById({ segmentId: i.segmentId });
                 i.roadType = I18n.t("segment.road_types")[i.segment.roadType];
+                i.roadTypeEnum = i.segment.roadType;
                 i.lon = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[0], 0) / i.segment.geometry.coordinates.length;
                 i.lat = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[1], 0) / i.segment.geometry.coordinates.length;
                 if (i.segment !== undefined && i.segment !== null) i.primaryStreet = sdk.DataModel.Streets.getById({ streetId: i.segment.primaryStreetId });
-                location.push(i.primaryStreet.englishName || i.primaryStreet.name)
-                if (i.primaryStreet !== undefined && i.primaryStreet !== null) i.city = sdk.DataModel.Cities.getById({ cityId: i.primaryStreet.cityId});
-                location.push(i.city.name)
+                location.push(i.primaryStreet.englishName || i.primaryStreet.name);
+                if (i.primaryStreet !== undefined && i.primaryStreet !== null) i.city = sdk.DataModel.Cities.getById({ cityId: i.primaryStreet.cityId });
+                location.push(i.city.name);
                 if (i.city !== undefined && i.city !== null) i.state = sdk.DataModel.States.getById({ stateId: i.city.stateId });
-                location.push(i.state.name)
+                if (i.state !== undefined && i.state !== null) delete i.state.geometry;
+                location.push(i.state.name);
                 if (i.city !== undefined && i.city !== null) i.country = sdk.DataModel.Countries.getById({ countryId: i.city.countryId });
-                location.push(i.country.name)
+                if (i.country !== undefined && i.country !== null) removeObjectProperties(i.country, ['restrictionSubscriptions', 'defaultLaneWidthPerRoadType']);
+                location.push(i.country.name);
                 i.location = location.join(", ");
-                i.isForward ? i.direction = "A➜B" : i.direction = "B➜A"
+                i.createdBy = i.modificationData.createdBy;
+                i.createdOn = i.modificationData.createdOn;
+                i.isForward ? i.direction = "A➜B" : i.direction = "B➜A";
+                removeObjectProperties(i, ['city', 'state', 'country', 'primaryStreet', 'isPermanent', 'description', 'endDate', 'modificationData', 'startDate', 'isForward', 'segment', 'status', 'trafficEventId'])
             });
-            console.log(userReportedClosures);
-            //sendClosures();
+            let uploadData = {
+                //bbox: sdk.Map.getMapExtent(),
+                closures: userReportedClosures
+            };
+            sendClosures(uploadData);
         } else {
             console.log(`Waze Scan Closures: No new closures found...`)
         }
     }
 
-    function sendClosures() {
-        let ClosuresReq = fetch(endpoints["UPLOAD_CLOSURES"], {
+    function sendClosures(uploadData) {
+        if (url === "" || password === "") {
+            console.error("Waze Scan Closures: URL or password not set!");
+            return;
+        }
+        // use GM_xmlhttpRequest(details)
+        let details = {
             method: "POST",
-            body: JSON.stringify(userReportedClosures),
+            url: endpoints["UPLOAD_CLOSURES"],
+            data: JSON.stringify(uploadData),
             headers: {
                 "Content-type": "application/json; charset=UTF-8"
             }
-        });
+        };
+        GM_xmlhttpRequest(details);
     }
 })();
