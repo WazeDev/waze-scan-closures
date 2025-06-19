@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.5
+// @version      0.0.6
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -12,7 +12,7 @@
 // @license      MIT
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
-// @connect      localhost
+// @connect      wsc.gc-p.zip
 // ==/UserScript==
 
 (function () {
@@ -61,6 +61,7 @@
                 endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures?pw=${password}`;
             });
         });
+        getTrackedClosures();
         console.log(`Waze Scan Closures: Initialized!`);
     }
     function getTrackedClosures() {
