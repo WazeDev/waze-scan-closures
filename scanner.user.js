@@ -22,7 +22,7 @@
     let userReportedClosures = [];
     let trackedClosures = [];
     let password = localStorage.getItem("waze-scan-closures-password") || password;
-    let url = localStorage.getItem("waze-scan-closures-url") || url;
+    let url = localStorage.getItem("waze-scan-closures-url") || "https://wsc.gc-p.zip";
     let endpoints = { "TRACKED_CLOSURES": `${url}/trackedClosures?pw=${password}`, "UPLOAD_CLOSURES": `${url}/uploadClosures?pw=${password}` }
 
     function init() {
@@ -84,7 +84,7 @@
             (new Date(c.endDate).getTime() - new Date(c.startDate).getTime()) === 3600000 && !trackedClosures.includes(c.id)
         );
     }
-    var removeObjectProperties = function (obj, props) {
+    function removeObjectProperties(obj, props) {
 
         for (var i = 0; i < props.length; i++) {
             if (obj.hasOwnProperty(props[i])) {
