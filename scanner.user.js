@@ -21,7 +21,7 @@
     let sdk;
     let userReportedClosures = [];
     let trackedClosures = [];
-    let password = localStorage.getItem("waze-scan-closures-password") || password;
+    let password = localStorage.getItem("waze-scan-closures-password");
     let url = localStorage.getItem("waze-scan-closures-url") || "https://wsc.gc-p.zip";
     let endpoints = { "TRACKED_CLOSURES": `${url}/trackedClosures?pw=${password}`, "UPLOAD_CLOSURES": `${url}/uploadClosures?pw=${password}` }
 
@@ -65,7 +65,10 @@
         console.log(`Waze Scan Closures: Initialized!`);
     }
     function getTrackedClosures() {
-        // use GM_xmlhttpRequest(details)
+        if (url === "" || password === "") {
+            console.error("Waze Scan Closures: URL or password not set!");
+            return;
+        }
         let details = {
             method: "GET",
             url: endpoints["TRACKED_CLOSURES"],
