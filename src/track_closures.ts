@@ -292,7 +292,7 @@ async function notifyDiscord({
   const webhooks = regionCfg.webhooks || [];
   for (const hook of webhooks) {
     if (hook.type === "discord") {
-      console.log(`Sending a closure notification to Discord (${regionCfg})…`);
+      console.log(`Sending a closure notification to Discord (${region})…`);
       const res = await fetch(hook.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -408,7 +408,7 @@ const server = http.createServer((req, res) => {
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify(Object.keys(tracked), null, 2));
-      console.log(`👀 Tracked closures requested, returning ${Object.keys(tracked).length} entries.`);
+      //console.log(`👀 Tracked closures requested, returning ${Object.keys(tracked).length} entries.`);
       return;
     }
     res.statusCode = 404;
