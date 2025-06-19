@@ -7,17 +7,11 @@
     "scan": "node out/scan_areas.js",
     "track": "node out/track_closures.js"
   },
-  "dependencies": {
-    "node-fetch": "^3.0.0",
-    "puppeteer": "^20.0.0"
-  },
   "devDependencies": {
-    "@types/express": "^5.0.3",
     "@types/node": "^24.0.3",
     "@typescript-eslint/parser": "^8.34.1",
     "eslint": "^9.29.0",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.34.1",
-    "wme-sdk-typings": "https://web-assets.waze.com/wme_sdk_docs/production/latest/wme-sdk-typings.tgz"
+    "typescript-eslint": "^8.34.1"
   }
 }

@@ -1,26 +1,12 @@
-import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
 import { fileURLToPath } from "url";
-
-// Extend the Window interface to include getWmeSdk
-declare global {
-  interface Window {
-    getWmeSdk?: (...args: any[]) => any;
-  }
-}
+import http from "http";
 
 const URL_HASH_FACTOR = (Math.sqrt(5) - 1) / 2;
 
 const previewZoomLevel = 17;
-
-const COOKIE_PATH = "cookies.json";
-
-// ← ensure cookies.json exists
-if (!fs.existsSync(COOKIE_PATH)) {
-  fs.writeFileSync(COOKIE_PATH, JSON.stringify([], null, 2), "utf8");
-}
 
 // emulate __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -132,61 +118,7 @@ function pickTileServer(x: string, y: string, t: typeof tileServers = tileServer
   return url;
 }
 
-// Launch the browser and open a new blank page and make it visible
-const browser = await puppeteer.launch({
-  headless: false, // Set to false to see the browser
-  defaultViewport: null, // Use the default viewport size
-  args: ["--start-maximized"], // Start the browser maximized
-});
-const page = await browser.newPage();
 
-// Load and apply saved cookies to the page
-const rawCookies = JSON.parse(fs.readFileSync(COOKIE_PATH, "utf8"));
-const validCookies = rawCookies.filter((c: { name: any; value: any; }) => c.name && c.value);
-if (validCookies.length) {
-  await page.setCookie(...validCookies);
-}
-
-// Build a Cookie header string for node‐fetch
-const cookieHeader = validCookies.map((c: { name: any; value: any; }) => `${c.name}=${c.value}`).join("; ");
-
-// 1) Navigate and wait for SDK + login in one go
-await page.goto(editorUrl);
-
-await page.waitForFunction(
-  () => {
-    // guard against SDK not injected yet
-    if (typeof window.getWmeSdk !== "function") {
-      console.log("waiting for getWmeSdk…");
-      return false;
-    }
-    const sdk = window.getWmeSdk({
-      scriptId: "wme-scan-closures",
-      scriptName: "Waze Scan Closures",
-    });
-    console.log("got sdk, loggedIn=", !!sdk?.WmeState?.isLoggedIn());
-    return sdk?.State?.isLoggedIn() === true;
-  },
-  {
-    polling: 1000, // check every second
-    timeout: 0, // wait indefinitely
-  }
-);
-
-console.log("✅ Logged in; continuing…");
-
-// 2) Save fresh cookies
-const freshCookies = await page.cookies();
-fs.writeFileSync(COOKIE_PATH, JSON.stringify(freshCookies, null, 2));
-
-// ← if cookies loaded/saved OK, close Puppeteer and exit
-if (freshCookies.length > 0) {
-  console.log("✅ Cookies are OK, closing browser.");
-  await browser.close();
-}
-
-// now WEBHOOK_URL will be picked up from your .env
-const SCAN_FILE = path.resolve(__dirname, "..", "scan_results.json");
 const TRACK_FILE = path.resolve(__dirname, "..", "closure_tracking.json");
 // Load or initialize tracking store (id -> { firstSeen, country })
 let tracked: { [id: string]: { firstSeen: string; country: string } } = {};
@@ -194,288 +126,135 @@ if (fs.existsSync(TRACK_FILE)) {
   tracked = JSON.parse(fs.readFileSync(TRACK_FILE, "utf8"));
 }
 
-// ← Add this right after config.json load
-const CACHE_PATH = path.resolve(__dirname, "..", "feature_cache.json");
-// include countries cache
-let featureCache: { users: any; segments: any; streets: any; cities: any; states: any; countries: any; };
-if (fs.existsSync(CACHE_PATH)) {
-  featureCache = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
-} else {
-  featureCache = { users: {}, segments: {}, streets: {}, cities: {}, states: {}, countries: {} };
-}
-
-// Function to scan for new IDs
-async function updateTracking() {
-  let data;
-  try {
-    data = JSON.parse(fs.readFileSync(SCAN_FILE, "utf8"));
-  } catch {
-    console.error(`❌ Scan results file not found: ${SCAN_FILE}`);
-    return;
-  }
-  const newClosures = [];
-
-  for (const country in data) {
-    for (const c of data[country].closures) {
-      if (!tracked[c.id]) {
-        tracked[c.id] = { firstSeen: new Date().toISOString(), country };
-        newClosures.push({
-          id: c.id,
-          country,
-          geometry: c.geometry, // pass full geometry
-          segID: c.segID,
-          userId: c.createdBy,
-          timestamp: c.createdOn,
-          forward: c.forward // use createdOn from scan results
-        });
-      }
+// Modify signature to accept parsed JSON
+async function updateTracking(data: any) {
+  const newClosures: any[] = [];
+  const arr = data.closures || [];
+  for (const c of arr) {
+    const country = c.location.split(",").pop()!.trim();
+    if (!tracked[c.id]) {
+      tracked[c.id] = { firstSeen: new Date().toISOString(), country };
+      newClosures.push({
+        id: c.id,
+        segID: String(c.segmentId),
+        userName: c.createdBy,
+        timestamp: c.createdOn,
+        direction: c.direction,
+        lat: c.lat,
+        lon: c.lon,
+        location: c.location,
+        roadType: c.roadType,
+        roadTypeEnum: c.roadTypeEnum,
+      });
     }
   }
-
   if (newClosures.length) {
     fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
     console.log(`👀 Found ${newClosures.length} new closures!`);
     for (const closure of newClosures) {
       await notifyDiscord(closure);
     }
-  } else {
-    //console.log("👀 No new closures found.");
   }
 }
 
 // helper to notify Discord with an embed
 async function notifyDiscord({
   id,
-  country,
-  geometry,
   segID,
-  userId,
-  trust = 0,
+  userName,
   timestamp,
-  forward,
-  location = "Unknown",
-  reason = "No Reason Selected",
-  segmentType = "Unknown",
+  direction,
+  lat,
+  lon,
+  location,
+  roadType,
+  roadTypeEnum,
 }: {
   id: string;
-  country: string;
-  geometry: { coordinates: [number, number][] };
   segID: string;
-  userId: string;
-  trust?: number;
+  userName: string;
   timestamp: number;
-  forward: boolean;
-  location?: string;
-  reason?: string;
-  segmentType?: string;
+  direction: boolean;
+  lat: number;
+  lon: number;
+  location: string;
+  roadType: string;
+  roadTypeEnum: keyof typeof roadTypes;
 }) {
-  const coords = geometry.coordinates;
-  // Average coordinates to get a center point
-  const avgLon = coords.reduce((sum, coord) => sum + coord[0], 0) / coords.length;
-  const avgLat = coords.reduce((sum, coord) => sum + coord[1], 0) / coords.length;
-  const [lonStart, latStart] = coords[0];
-  const [lonEnd, latEnd] = coords[coords.length - 1];
-  const region = cfg.regionBoundaries[country];
+  let slackLocation;
+  let regionCfg;
+  // check location if any keywords from region.locationKeywordsFilter are present
+  const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+  const searchQuery = encodeURIComponent(`${location} ${searchParams}`);
+  const region = Object.keys(cfg.regionBoundaries).find(r => {
+    const f = cfg.regionBoundaries[r].locationKeywordsFilter;
+    return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
+  });
+  if (region) {
+    console.log(`Assigning closure ${id} to region ${region}`);
+    tracked[id].country = region;
+    fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+    regionCfg = cfg.regionBoundaries[region];
+  } else {
+    console.warn(`Closure does not match any region, ignoring...`);
+    return;
+  }
 
-  const adjLon1 = +avgLon.toFixed(3) + 0.005;
-  const adjLat1 = +avgLat.toFixed(3) + 0.005;
-  const adjLon2 = +avgLon.toFixed(3) - 0.005;
-  const adjLat2 = +avgLat.toFixed(3) - 0.005;
+  slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
+  location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
+  // Average coordinates to get a center point
+  const adjLon1 = +lon.toFixed(3) + 0.005;
+  const adjLat1 = +lat.toFixed(3) + 0.005;
+  const adjLon2 = +lon.toFixed(3) - 0.005;
+  const adjLat2 = +lat.toFixed(3) - 0.005;
 
   let envPrefix: string;
-  if (region.env === 'row') {
+  if (regionCfg.env === 'row') {
     envPrefix = "row-";
-  } else if (region.env === 'il') {
+  } else if (regionCfg.env === 'il') {
     envPrefix = "il-";
   } else {
     envPrefix = "";
   }
 
   // Get preview tile URL
-  const tileX = lon2tile(avgLon, previewZoomLevel);
-  const tileY = lat2tile(avgLat, previewZoomLevel);
-  const tileUrl = pickTileServer(tileX, tileY, tileServers, region) // pick a tile server based on country
+  const tileX = lon2tile(lon, previewZoomLevel);
+  const tileY = lat2tile(lat, previewZoomLevel);
+  const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg) // pick a tile server based on country
 
-  const featuresUrl =
-    `https://www.waze.com/${envPrefix}Descartes/app/Features?` +
-    `bbox=${adjLon1.toFixed(3)},${adjLat1.toFixed(3)},${adjLon2.toFixed(
-      3
-    )},${adjLat2.toFixed(3)}` +
-    `&roadClosures=true&roadTypes=1,2,3,4,6,7,20`;
-  // first check cache
-  const uc = featureCache.users[userId];
-  let sc = featureCache.segments[segID];
-  let streetID = sc?.primaryStreetID;
-  let slackLocation;
-  const stc = streetID && featureCache.streets[streetID];
-  const cc = stc && featureCache.cities[stc.cityID];
-  const stt = cc && featureCache.states[cc.stateID];
-  // only lookup country if city has a valid countryID
-  const ctry = cc?.countryID != null
-    ? featureCache.countries[cc.countryID]
-    : undefined;
-
-  let userName = uc ? `[${uc.userName} (${uc.rank})](https://www.waze.com/user/editor/${uc.userName})` : userId;
-  let slackUsername = uc ? `<https://www.waze.com/user/editor/${uc.userName}|${uc.userName} (${uc.rank})>` : userId;
-  segmentType = sc ? roadTypes[sc.roadType as keyof typeof roadTypes] : "Unknown";
-
-  if (stc) {
-    const names = [stc.name || stc.englishName];
-    if (cc)   names.push(cc.name  || cc.englishName);
-    if (stt)  names.push(stt.name);
-    if (ctry?.name)  names.push(ctry.name);    // ← here is where country should be added
-    location = names.filter(Boolean).join(", ");
-  }
-
-  // if anything missing in cache, do one fetch and populate cache
-  if (!uc || !sc || !stc || !cc || !stt) {
-    console.log(`Fetching closure details ${id} (${country}) ${featuresUrl}`);
-    const reqStart = Date.now();
-    const res = await fetch(featuresUrl, {
-      headers: { Cookie: cookieHeader }
-    });
-    if (res.status === 403) {
-      console.error(`❌ Received 403 Forbidden from Waze features API for ${featuresUrl}, exiting.`);
-      process.exit(1);
-    }
-    const js: any = await res.json();
-    const reqDuration = Date.now() - reqStart;
-    await delay(1000 - reqDuration);
-
-
-    // ── BULK POPULATE CACHE ───────────────────────────────────────────────
-    js.users.objects.forEach((u: { id: string | number; userName: any; rank: any; }) => {
-      featureCache.users[u.id] = { userName: u.userName, rank: u.rank };
-    });
-    js.segments.objects.forEach((s: { id: string | number; roadType: any; primaryStreetID: any; }) => {
-      featureCache.segments[s.id] = {
-        roadType: s.roadType,
-        primaryStreetID: s.primaryStreetID,
-      };
-    });
-    js.streets.objects.forEach((st: { id: string | number; name: any; englishName: any; cityID: any; }) => {
-      featureCache.streets[st.id] = {
-        name: st.name || st.englishName,
-        cityID: st.cityID,
-      };
-    });
-    js.cities.objects.forEach((c: { id: string | number; name: any; englishName: any; stateID: any; countryID?: number; }) => {
-      featureCache.cities[c.id] = {
-        name: c.name || c.englishName,
-        stateID: c.stateID,
-        countryID: c.countryID,
-      };
-    });
-    js.states.objects.forEach((s: { id: string | number; name: any; }) => {
-      featureCache.states[s.id] = { name: s.name };
-    });
-    // cache countries
-    if (js.countries?.objects) {
-      js.countries.objects.forEach((c: { id: number; name: string; abbr?: string; env?: string }) => {
-        featureCache.countries[c.id] = { name: c.name, abbr: c.abbr, env: c.env };
-      });
-    }
-
-    // persist entire cache
-    fs.writeFileSync(CACHE_PATH, JSON.stringify(featureCache, null, 2));
-
-    // ── REBUILD LOCAL SHORTCUTS ──────────────────────────────────────────
-    // re-derive uc, sc, stc, cc, stt, userName, segmentType, location using updated featureCache...
-    const uc2 = featureCache.users[userId];
-    const sc2 = featureCache.segments[segID];
-    const stc2 = sc2 && featureCache.streets[sc2.primaryStreetID];
-    const cc2 = stc2 && featureCache.cities[stc2.cityID];
-    const stt2 = cc2 && featureCache.states[cc2.stateID];
-    const ctry2 = cc2 && featureCache.countries[cc2.countryID];
-
-    // overwrite your variables for userName, segmentType, location…
-    userName = uc2 ? `[${uc2.userName} (${uc2.rank})](https://www.waze.com/user/editor/${uc2.userName})` : userName;
-    slackUsername = uc2 ? `<https://www.waze.com/user/editor/${uc2.userName}|${uc2.userName} (${uc2.rank})>` : userName;
-    segmentType = sc2 ? roadTypes[sc2.roadType as keyof typeof roadTypes] : segmentType;
-    if (stc2) {
-      const parts: string[] = [];
-      if (stc2.name) parts.push(stc2.name);
-      if (cc2?.name) parts.push(cc2.name);
-      if (stt2?.name) parts.push(stt2.name);
-      if (ctry2?.name) parts.push(ctry2.name);
-      location = parts.join(", ");
-    }
-
-    // ← now that we have a fresh segment, overwrite sc so embed.color works
-    sc = sc2;
-  }
-
-  // check location if any keywords from region.locationKeywordsFilter are present
-  if (location !== "Unknown") {
-    const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
-    const searchQuery = encodeURIComponent(`${location} ${searchParams}`);
-    if (region.locationKeywordsFilter && region.locationKeywordsFilter.length > 0) {
-      const keywords = region.locationKeywordsFilter.map((k: string) => k.toLowerCase());
-      if (!keywords.some((k: string) => location.toLowerCase().includes(k))) {
-        console.warn(`Closure not in current region, trying other regions for "${location}"…`);
-        // try other regions
-        const other = Object.keys(cfg.regionBoundaries).find(r => {
-          if (r === country) return false;
-          const f = cfg.regionBoundaries[r].locationKeywordsFilter;
-          return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
-        });
-        if (other) {
-          console.log(`Reassigning closure ${id} to region ${other}`);
-          tracked[id].country = other;
-          fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
-          // notify for new region context
-          await notifyDiscord({ id, country: other, geometry, segID, userId, trust, timestamp, forward });
-          return;
-        } else {
-          console.warn(`Closure does not match any region, ignoring...`);
-          fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
-          return;
-        }
-      }
-    }
-    slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
-    location = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
-  }
-
+  userName = `[${userName}](https://www.waze.com/user/editor/${userName})`;
+  let slackUsername = `<https://www.waze.com/user/editor/${userName}|${userName}>`;
   const editorUrl =
-    `https://www.waze.com/en-US/editor?env=${region.env}` +
-    `&lat=${avgLat.toFixed(6)}` +
-    `&lon=${avgLon.toFixed(6)}` +
+    `https://www.waze.com/en-US/editor?env=${regionCfg.env}` +
+    `&lat=${lat.toFixed(6)}` +
+    `&lon=${lon.toFixed(6)}` +
     `&zoomLevel=17&segments=${segID}`;
   const liveMapUrl =
     `https://www.waze.com/live-map/directions?to=ll.` +
-    `${avgLat.toFixed(6)}%2C${avgLon.toFixed(6)}`;
-  const appUrl = `https://www.waze.com/ul?ll=${avgLat.toFixed(
+    `${lat.toFixed(6)}%2C${lon.toFixed(6)}`;
+  const appUrl = `https://www.waze.com/ul?ll=${lat.toFixed(
     6
-  )},${avgLon.toFixed(6)}`;
+  )},${lon.toFixed(6)}`;
   let dotMap;
-  if (region.departmentOfTransporationUrl) {
+  if (regionCfg.departmentOfTransporationUrl) {
     // if region has a DoT URL, append it to the appUrl
     // Check if the URL contains {lat} and {lon} twice, if so, use bounding box, if not, use start point
     if (
-      (region.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
-      (region.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
+      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
+      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
     ) {
-      dotMap = region.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
+      dotMap = regionCfg.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
     } else {
-      dotMap = region.departmentOfTransporationUrl.replace(
+      dotMap = regionCfg.departmentOfTransporationUrl.replace(
         "{lat}",
-        avgLat.toFixed(6)
-      ).replace("{lon}", avgLon.toFixed(6));
+        lat.toFixed(6)
+      ).replace("{lon}", lon.toFixed(6));
     }
-  }
-  let direction;
-  if (forward === true) {
-    direction = "A➜B";
-  } else {
-    direction = "B➜A";
   }
   const embed = {
     author: { name: `New App Closure (${direction})` },
     // use the cached segment (sc) instead of undefined `segment`
-    color: sc
-      ? (roadTypeColors[sc.roadType as keyof typeof roadTypeColors] || 0xe74c3c)
-      : 0xe74c3c,
+    color: roadTypeColors[roadTypeEnum] || 0x3498db, // default to blue if no color found
     fields: [
       {
         name: "User",
@@ -485,7 +264,7 @@ async function notifyDiscord({
         name: "Reported at",
         value: `<t:${(timestamp / 1000).toFixed(0)}:F>`,
       },
-      { name: "Segment Type", value: segmentType, inline: true },
+      { name: "Segment Type", value: roadType, inline: true },
       {
         name: "Location",
         value: location,
@@ -504,15 +283,15 @@ async function notifyDiscord({
 	},
   };
 
-  if (region.departmentOfTransporationUrl) {
+  if (regionCfg.departmentOfTransporationUrl) {
     embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
   }
 
   // 4) send to webhooks
-  const webhooks = region.webhooks || [];
+  const webhooks = regionCfg.webhooks || [];
   for (const hook of webhooks) {
     if (hook.type === "discord") {
-      console.log(`Sending a closure notification to Discord (${country})…`);
+      console.log(`Sending a closure notification to Discord (${regionCfg})…`);
       const res = await fetch(hook.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -525,7 +304,7 @@ async function notifyDiscord({
         console.error(`Discord webhook request failed (${res.status}): ${text}`);
       }
     } else if (hook.type === "slack") {
-      console.log(`Sending a closure notification to Slack (${country})…`);
+      console.log(`Sending a closure notification to Slack (${region})…`);
       const slackBlocks = [
          {
            type: "section",
@@ -555,7 +334,7 @@ async function notifyDiscord({
            fields: [
              {
                type: "mrkdwn",
-               text: `*Segment Type*\n${segmentType}`
+               text: `*Segment Type*\n${roadType}`
              },
              {
                type: "mrkdwn",
@@ -569,7 +348,7 @@ async function notifyDiscord({
            fields: [
              {
                type: "mrkdwn",
-               text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${region.departmentOfTransporationUrl ? ` | <${dotMap}|Department of Transportation Map Link>` : ""}`
+               text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|Department of Transportation Map Link>` : ""}`
              }
            ]
          }
@@ -592,10 +371,47 @@ async function notifyDiscord({
   return;
 }
 
-// Initial run & watch
-console.log("👀 Watching for new closures…");
-await updateTracking();
-fs.watchFile(SCAN_FILE, { interval: 1000 }, (curr, prev) => {
-  //console.log(`👀 Scan results has been updated, checking for new closures...`);
-  if (curr.mtime > prev.mtime) updateTracking();
-});
+// ── Replace initial run & file-watch with HTTP server ───────────────────
+const PORT = 3000;
+const server = http.createServer((req, res) => {
+    const url = new URL(req.url || "", `http://localhost`);
+    if (url.pathname === "/uploadClosures") {
+      const pw = url.searchParams.get("pw");
+      if (pw !== (cfg as any).password) {
+        res.statusCode = 404;
+        res.end("Not Found");
+        return;
+      }
+      let body = "";
+      req.on("data", chunk => { body += chunk; });
+      req.on("end", async () => {
+        try {
+          const data = JSON.parse(body);
+          await updateTracking(data);
+          res.statusCode = 200;
+          res.end("Upload complete");
+        } catch {
+          res.statusCode = 400;
+          res.end("Invalid JSON");
+        }
+      });
+      return;
+    } else if (url.pathname === "/trackedClosures") {
+      const pw = url.searchParams.get("pw");
+      if (pw !== (cfg as any).password) {
+        res.statusCode = 404;
+        res.end("Not Found");
+        return;
+      }
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(Object.keys(tracked), null, 2));
+      return;
+    }
+    res.statusCode = 404;
+    res.end("Not Found");
+  });
+
+  server.listen(PORT, () => {
+    console.log(`🚀 Server listening on ${PORT}…`);
+  });

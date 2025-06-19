@@ -1,12 +1,8 @@
 {
   "regionBoundaries": {
     "US": {
-      "xMin": -125,
-      "xMax": -66.5,
-      "yMin": 24.396308,
-      "yMax": 49.384358,
-      "env": "",
       "locationKeywordsFilter": ["KEYWORDS_HERE"],
+      "env": "",
       "departmentOfTransporationUrl": "DOT_URL_HERE_USE_{lat}_FOR_LATITUDE_USE_{lon}_FOR_LONGITUDE",
       "webhooks": [
         {
@@ -16,5 +12,6 @@
       ]
     }
   },
-  "loop": false
+  "loop": false,
+  "password: "CHANGE_ME"
 }
