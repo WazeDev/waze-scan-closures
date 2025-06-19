@@ -152,6 +152,7 @@ async function updateTracking(data: any) {
     fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
     console.log(`👀 Found ${newClosures.length} new closures!`);
     for (const closure of newClosures) {
+      await delay(1000); // delay to avoid rate limiting
       await notifyDiscord(closure);
     }
   }
@@ -390,6 +391,7 @@ const server = http.createServer((req, res) => {
           await updateTracking(data);
           res.statusCode = 200;
           res.end("Upload complete");
+          console.log(`👀 ${data.closures.length} closures uploaded successfully.`);
         } catch {
           res.statusCode = 400;
           res.end("Invalid JSON");
@@ -406,6 +408,7 @@ const server = http.createServer((req, res) => {
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify(Object.keys(tracked), null, 2));
+      console.log(`👀 Tracked closures requested, returning ${Object.keys(tracked).length} entries.`);
       return;
     }
     res.statusCode = 404;
