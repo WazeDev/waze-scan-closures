@@ -94,6 +94,7 @@
 
     };
     function updateRoadClosures() {
+        getTrackedClosures();
         let currentUserReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
         if (currentUserReportedClosures.length !== 0) {
             userReportedClosures = currentUserReportedClosures;
@@ -148,6 +149,5 @@
             }
         };
         GM_xmlhttpRequest(details);
-        getTrackedClosures();
     }
 })();
