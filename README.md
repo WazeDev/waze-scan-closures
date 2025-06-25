@@ -28,10 +28,6 @@ npm run track          # start tracking new closures and notify Discord
 
 2. Edit `config.json`
 
-## Usage
-
-- Uses `out/scan_areas.js`  
-
 ### 1. Track new closures & notify Discord
 
 This script runs a webserver, identifies new closures, and posts embeds to Discord.
