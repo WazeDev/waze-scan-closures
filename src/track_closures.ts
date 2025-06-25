@@ -281,8 +281,8 @@ async function notifyDiscord({
       },
     ],
     thumbnail: {
-		url: tileUrl,
-	},
+      url: tileUrl,
+    },
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
@@ -308,53 +308,53 @@ async function notifyDiscord({
     } else if (hook.type === "slack") {
       console.log(`Sending a closure notification to Slack (${region})…`);
       const slackBlocks = [
-         {
-           type: "section",
-           text: {
-             type: "mrkdwn",
-             text: `*New App Closure (${direction})*\n*User*\n${slackUsername}`
-           },
-           accessory: {
-             type: "image",
-             image_url: tileUrl,
-             alt_text: "Tile preview"
-           }
-         },
-         {
-           type: "section",
-           block_id: "reportedAt",
-           fields: [
-             {
-               type: "mrkdwn",
-               text: `*Reported At*\n<!date^${(timestamp/1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>`
-             }
-           ]
-         },
-         {
-           type: "section",
-           block_id: "segmentLocation",
-           fields: [
-             {
-               type: "mrkdwn",
-               text: `*Segment Type*\n${roadType}`
-             },
-             {
-               type: "mrkdwn",
-               text: `*Location*\n${slackLocation}`
-             }
-           ]
-         },
-         {
-           type: "section",
-           block_id: "links",
-           fields: [
-             {
-               type: "mrkdwn",
-               text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|Department of Transportation Map Link>` : ""}`
-             }
-           ]
-         }
-       ];
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*New App Closure (${direction})*\n*User*\n${slackUsername}`
+          },
+          accessory: {
+            type: "image",
+            image_url: tileUrl,
+            alt_text: "Tile preview"
+          }
+        },
+        {
+          type: "section",
+          block_id: "reportedAt",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>`
+            }
+          ]
+        },
+        {
+          type: "section",
+          block_id: "segmentLocation",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Segment Type*\n${roadType}`
+            },
+            {
+              type: "mrkdwn",
+              text: `*Location*\n${slackLocation}`
+            }
+          ]
+        },
+        {
+          type: "section",
+          block_id: "links",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|Department of Transportation Map Link>` : ""}`
+            }
+          ]
+        }
+      ];
       const slackRes = await fetch(hook.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -376,45 +376,54 @@ async function notifyDiscord({
 // ── Replace initial run & file-watch with HTTP server ───────────────────
 const PORT = 3000;
 const server = http.createServer((req, res) => {
-    const url = new URL(req.url || "", `http://localhost`);
-    if (url.pathname === "/uploadClosures") {
-      let body = "";
-      req.on("data", chunk => { body += chunk; });
-      req.on("end", async () => {
-        try {
-          const data = JSON.parse(body);
-          if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
-            res.statusCode = 404;
-            res.end("Not Found");
-            return;
-          }
-          await updateTracking(data);
-          res.statusCode = 200;
-          res.end("Upload complete");
-          console.log(`👀 ${data.closures.length} closures uploaded successfully.`);
-        } catch {
-          res.statusCode = 400;
-          res.end("Invalid JSON");
+  const url = new URL(req.url || "", `http://localhost`);
+  if (url.pathname === "/uploadClosures") {
+    let body = "";
+    req.on("data", chunk => { body += chunk; });
+    req.on("end", async () => {
+      try {
+        const data = JSON.parse(body);
+        if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
+          res.statusCode = 404;
+          res.end("Not Found");
+          return;
         }
-      });
-      return;
-    } else if (url.pathname === "/trackedClosures") {
-      const pw = url.searchParams.get("pw");
-      if (pw !== (cfg as any).password) {
+        await updateTracking(data);
+        res.statusCode = 200;
+        res.end("Upload complete");
+        console.log(`👀 ${data.closures.length} closures uploaded successfully.`);
+      } catch {
+        res.statusCode = 404;
+        res.end("Not Found");
+      }
+    });
+    return;
+  } else if (url.pathname === "/trackedClosures") {
+    let body = "";
+    req.on("data", chunk => { body += chunk; });
+    req.on("end", async () => {
+    try {
+      const data = JSON.parse(body);
+      if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
         res.statusCode = 404;
         res.end("Not Found");
         return;
       }
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify(Object.keys(tracked), null, 2));
-      //console.log(`👀 Tracked closures requested, returning ${Object.keys(tracked).length} entries.`);
-      return;
+    } catch {
+      res.statusCode = 404;
+      res.end("Not Found");
     }
-    res.statusCode = 404;
-    res.end("Not Found");
-  });
+  })
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(Object.keys(tracked), null, 2));
+    //console.log(`👀 Tracked closures requested, returning ${Object.keys(tracked).length} entries.`);
+    return;
+  }
+  res.statusCode = 404;
+  res.end("Not Found");
+});
 
-  server.listen(PORT, () => {
-    console.log(`🚀 Server listening on ${PORT}…`);
-  });
+server.listen(PORT, () => {
+  console.log(`🚀 Server listening on ${PORT}…`);
+});

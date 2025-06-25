@@ -337,19 +337,29 @@ const server = http.createServer((req, res) => {
                 console.log(`👀 ${data.closures.length} closures uploaded successfully.`);
             }
             catch {
-                res.statusCode = 400;
-                res.end("Invalid JSON");
+                res.statusCode = 404;
+                res.end("Not Found");
             }
         });
         return;
     }
     else if (url.pathname === "/trackedClosures") {
-        const pw = url.searchParams.get("pw");
-        if (pw !== cfg.password) {
-            res.statusCode = 404;
-            res.end("Not Found");
-            return;
-        }
+        let body = "";
+        req.on("data", chunk => { body += chunk; });
+        req.on("end", async () => {
+            try {
+                const data = JSON.parse(body);
+                if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
+                    res.statusCode = 404;
+                    res.end("Not Found");
+                    return;
+                }
+            }
+            catch {
+                res.statusCode = 404;
+                res.end("Not Found");
+            }
+        });
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(Object.keys(tracked), null, 2));

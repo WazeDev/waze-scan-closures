@@ -59,7 +59,8 @@
             return;
         }
         let details = {
-            method: "GET",
+            method: "POST",
+            body: JSON.stringify({ userName: sdk.State.getUserInfo().userName }),
             url: endpoints["TRACKED_CLOSURES"],
             onload: function (response) {
                 let trkRes = JSON.parse(response.responseText);
