@@ -21,10 +21,11 @@
     let sdk;
     let userReportedClosures = [];
     let trackedClosures = [];
+    let wazeEditorName;
     let url = localStorage.getItem("waze-scan-closures-url") || "https://wsc.gc-p.zip";
     let endpoints = { "TRACKED_CLOSURES": `${url}/trackedClosures`, "UPLOAD_CLOSURES": `${url}/uploadClosures` }
 
-    function init() {
+    async function init() {
         sdk = unsafeWindow.getWmeSdk({
             scriptId: 'wme-scan-closures',
             scriptName: 'Waze Scan Closures'
@@ -50,6 +51,11 @@
                 endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures`;
             });
         });
+        while (sdk.State.getUserInfo() === null) {
+            console.log("Waze Scan Closures: Waiting for user to be logged in...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        wazeEditorName = sdk.State.getUserInfo().userName;
         getTrackedClosures();
         console.log(`Waze Scan Closures: Initialized!`);
     }
@@ -60,7 +66,7 @@
         }
         let details = {
             method: "POST",
-            body: JSON.stringify({ userName: sdk.State.getUserInfo().userName }),
+            body: JSON.stringify({ userName: wazeEditorName }),
             url: endpoints["TRACKED_CLOSURES"],
             onload: function (response) {
                 let trkRes = JSON.parse(response.responseText);
@@ -118,7 +124,7 @@
             });
             let uploadData = {
                 //bbox: sdk.Map.getMapExtent(),
-                userName: sdk.State.getUserInfo().userName,
+                userName: wazeEditorName,
                 closures: userReportedClosures
             };
             sendClosures(uploadData);
