@@ -1,6 +1,6 @@
 {
   "regionBoundaries": {
-    "US": {
+    "REGION_NAME_HERE": {
       "locationKeywordsFilter": ["KEYWORDS_HERE"],
       "env": "",
       "departmentOfTransporationUrl": "DOT_URL_HERE_USE_{lat}_FOR_LATITUDE_USE_{lon}_FOR_LONGITUDE",
@@ -13,5 +13,7 @@
     }
   },
   "loop": false,
-  "password: "CHANGE_ME"
+  "whitelist": [
+    "EDITOR_USERNAME_HERE",
+  ]
 }

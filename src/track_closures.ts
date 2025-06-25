@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 // load config.json
 const configPath = path.resolve(__dirname, "..", "config.json");
-let cfg: { regionBoundaries: { [x: string]: any; }; };
+let cfg: { regionBoundaries: { [x: string]: any; }, loop?: boolean; whitelist?: string[]; }
 try {
   cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
 } catch (err) {
@@ -378,17 +378,16 @@ const PORT = 3000;
 const server = http.createServer((req, res) => {
     const url = new URL(req.url || "", `http://localhost`);
     if (url.pathname === "/uploadClosures") {
-      const pw = url.searchParams.get("pw");
-      if (pw !== (cfg as any).password) {
-        res.statusCode = 404;
-        res.end("Not Found");
-        return;
-      }
       let body = "";
       req.on("data", chunk => { body += chunk; });
       req.on("end", async () => {
         try {
           const data = JSON.parse(body);
+          if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
+            res.statusCode = 404;
+            res.end("Not Found");
+            return;
+          }
           await updateTracking(data);
           res.statusCode = 200;
           res.end("Upload complete");

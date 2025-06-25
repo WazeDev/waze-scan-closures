@@ -114,6 +114,7 @@ if (fs.existsSync(TRACK_FILE)) {
 async function updateTracking(data) {
     const newClosures = [];
     const arr = data.closures || [];
+    const userName = data.userName || "Unknown User";
     for (const c of arr) {
         const country = c.location.split(",").pop().trim();
         if (!tracked[c.id]) {
@@ -134,7 +135,7 @@ async function updateTracking(data) {
     }
     if (newClosures.length) {
         fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
-        console.log(`👀 Found ${newClosures.length} new closures!`);
+        console.log(`👀 ${userName} found ${newClosures.length} new closures!`);
         for (const closure of newClosures) {
             await delay(1000);
             await notifyDiscord(closure);
@@ -320,17 +321,16 @@ const PORT = 3000;
 const server = http.createServer((req, res) => {
     const url = new URL(req.url || "", `http://localhost`);
     if (url.pathname === "/uploadClosures") {
-        const pw = url.searchParams.get("pw");
-        if (pw !== cfg.password) {
-            res.statusCode = 404;
-            res.end("Not Found");
-            return;
-        }
         let body = "";
         req.on("data", chunk => { body += chunk; });
         req.on("end", async () => {
             try {
                 const data = JSON.parse(body);
+                if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
+                    res.statusCode = 404;
+                    res.end("Not Found");
+                    return;
+                }
                 await updateTracking(data);
                 res.statusCode = 200;
                 res.end("Upload complete");

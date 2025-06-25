@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.7
+// @version      0.0.8
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -21,9 +21,8 @@
     let sdk;
     let userReportedClosures = [];
     let trackedClosures = [];
-    let password = localStorage.getItem("waze-scan-closures-password");
     let url = localStorage.getItem("waze-scan-closures-url") || "https://wsc.gc-p.zip";
-    let endpoints = { "TRACKED_CLOSURES": `${url}/trackedClosures?pw=${password}`, "UPLOAD_CLOSURES": `${url}/uploadClosures?pw=${password}` }
+    let endpoints = { "TRACKED_CLOSURES": `${url}/trackedClosures`, "UPLOAD_CLOSURES": `${url}/uploadClosures` }
 
     function init() {
         sdk = unsafeWindow.getWmeSdk({
@@ -37,36 +36,26 @@
         userReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
         sdk.Sidebar.registerScriptTab().then(async (res) => {
             res.tabLabel.innerText = "WSC";
-            // Create two text areas for inputting url and password, update both variables when value changes
+            // Create text area for inputting url, update variable when value changes
             res.tabPane.innerHTML = `
                 <div>
                     <label for="WSCApiUrl">API URL:</label>
                     <input type="text" id="WSCApiUrl" value="${url}" style="width: 100%;" />
                 </div>
-                <div>
-                    <label for="WSCApiPw">API Password:</label>
-                    <input type="text" id="WSCApiPw" value="${password}" style="width: 100%;" />
-                </div>
             `;
             res.tabPane.querySelector("#WSCApiUrl").addEventListener("input", (e) => {
                 url = e.target.value;
                 localStorage.setItem("waze-scan-closures-url", url);
-                endpoints["TRACKED_CLOSURES"] = `${url}/trackedClosures?pw=${password}`;
-                endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures?pw=${password}`;
-            });
-            res.tabPane.querySelector("#WSCApiPw").addEventListener("input", (e) => {
-                password = e.target.value;
-                localStorage.setItem("waze-scan-closures-password", password);
-                endpoints["TRACKED_CLOSURES"] = `${url}/trackedClosures?pw=${password}`;
-                endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures?pw=${password}`;
+                endpoints["TRACKED_CLOSURES"] = `${url}/trackedClosures`;
+                endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures`;
             });
         });
         getTrackedClosures();
         console.log(`Waze Scan Closures: Initialized!`);
     }
     function getTrackedClosures() {
-        if (url === "" || password === "") {
-            console.error("Waze Scan Closures: URL or password not set!");
+        if (url === "") {
+            console.error("Waze Scan Closures: URL not set!");
             return;
         }
         let details = {
@@ -138,8 +127,8 @@
     }
 
     function sendClosures(uploadData) {
-        if (url === "" || password === "") {
-            console.error("Waze Scan Closures: URL or password not set!");
+        if (url === "") {
+            console.error("Waze Scan Closures: URL not set!");
             return;
         }
         // use GM_xmlhttpRequest(details)
