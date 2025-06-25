@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.6
+// @version      0.0.7
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -36,7 +36,7 @@
         });
         userReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
         sdk.Sidebar.registerScriptTab().then(async (res) => {
-            res.tabLabel.innerText = "Waze Scan Closures";
+            res.tabLabel.innerText = "WSC";
             // Create two text areas for inputting url and password, update both variables when value changes
             res.tabPane.innerHTML = `
                 <div>
@@ -128,6 +128,7 @@
             });
             let uploadData = {
                 //bbox: sdk.Map.getMapExtent(),
+                userName: sdk.State.getUserInfo().userName,
                 closures: userReportedClosures
             };
             sendClosures(uploadData);
