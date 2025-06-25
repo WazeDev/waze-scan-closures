@@ -391,7 +391,7 @@ const server = http.createServer((req, res) => {
         await updateTracking(data);
         res.statusCode = 200;
         res.end("Upload complete");
-        console.log(`👀 ${data.closures.length} closures uploaded successfully.`);
+        //console.log(`👀 ${data.closures.length} closures uploaded successfully.`);
       } catch {
         res.statusCode = 404;
         res.end("Not Found");
