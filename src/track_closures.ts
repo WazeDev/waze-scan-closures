@@ -130,6 +130,7 @@ if (fs.existsSync(TRACK_FILE)) {
 async function updateTracking(data: any) {
   const newClosures: any[] = [];
   const arr = data.closures || [];
+  const userName = data.userName || "Unknown User";
   for (const c of arr) {
     const country = c.location.split(",").pop()!.trim();
     if (!tracked[c.id]) {
@@ -150,7 +151,7 @@ async function updateTracking(data: any) {
   }
   if (newClosures.length) {
     fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
-    console.log(`👀 Found ${newClosures.length} new closures!`);
+    console.log(`👀 ${userName} found ${newClosures.length} new closures!`);
     for (const closure of newClosures) {
       await delay(1000); // delay to avoid rate limiting
       await notifyDiscord(closure);
