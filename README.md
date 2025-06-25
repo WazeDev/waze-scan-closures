@@ -40,8 +40,6 @@ This script runs a webserver, identifies new closures, and posts embeds to Disco
 npm run track
 ```
 
-- Uses `out/track_closures.js`  
-
 ## Project Structure
 
 ```text
