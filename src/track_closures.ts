@@ -207,6 +207,7 @@ async function notifyDiscord({
     fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
     regionCfg = cfg.regionBoundaries[region];
   } else {
+    delete tracked[id];
     console.warn(`Closure does not match any region, ignoring...`);
     return;
   }
