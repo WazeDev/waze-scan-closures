@@ -160,7 +160,6 @@ async function updateTracking(data: any) {
     }
   }
   if (newClosures.length) {
-    fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
     console.log(`👀 ${userName} found ${newClosures.length} new closures!`);
     for (const closure of newClosures) {
       await delay(1000); // delay to avoid rate limiting
