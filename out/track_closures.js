@@ -326,7 +326,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
     }
     return;
 }
-const PORT = 3000;
+const PORT = 80;
 const server = http.createServer((req, res) => {
     const url = new URL(req.url || "", `http://localhost`);
     if (url.pathname === "/uploadClosures") {
