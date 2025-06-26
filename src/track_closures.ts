@@ -392,6 +392,12 @@ const server = http.createServer((req, res) => {
     req.on("data", chunk => { body += chunk; });
     req.on("end", async () => {
       try {
+        if (!body.trim()) {
+          console.warn("Received empty request body for uploadClosures");
+          res.statusCode = 400;
+          res.end("Empty request body");
+          return;
+        }
         const data = JSON.parse(body);
         const user = data.userName;
         // normalize old-array or object whitelist
@@ -434,6 +440,12 @@ const server = http.createServer((req, res) => {
     req.on("data", chunk => { body += chunk; });
     req.on("end", async () => {
       try {
+        if (!body.trim()) {
+          console.warn("Received empty request body for trackedClosures");
+          res.statusCode = 400;
+          res.end("Empty request body");
+          return;
+        }
         const data = JSON.parse(body);
         const user = data.userName;
         // normalize old-array or object whitelist
