@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.9
+// @version      0.0.10
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -67,8 +67,11 @@
         }
         let details = {
             method: "POST",
-            body: JSON.stringify({ userName: wazeEditorName }),
+            data: JSON.stringify({ userName: wazeEditorName }),
             url: endpoints["TRACKED_CLOSURES"],
+            headers: {
+                "Content-Type": "application/json"
+            },
             onload: function (response) {
                 let trkRes = JSON.parse(response.responseText);
                 trackedClosures = trkRes;
