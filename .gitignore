@@ -1,6 +1,4 @@
-cookies.json
 config.json
-scan_results.json
 closure_tracking.json
-feature_cache.json
+log.txt
 node_modules/
