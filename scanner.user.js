@@ -34,6 +34,12 @@
             scriptId: 'wme-scan-closures',
             scriptName: 'Waze Scan Closures'
         });
+        while (sdk.State.getUserInfo() === null) {
+            console.log("Waze Scan Closures: Waiting for user to be logged in...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        wazeEditorName = sdk.State.getUserInfo().userName;
+        getTrackedClosures();
         sdk.Events.trackDataModelEvents({
             dataModelName: "roadClosures"
         });
@@ -58,12 +64,6 @@
                 endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures`;
             });
         });
-        while (sdk.State.getUserInfo() === null) {
-            console.log("Waze Scan Closures: Waiting for user to be logged in...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        wazeEditorName = sdk.State.getUserInfo().userName;
-        getTrackedClosures();
         console.log(`Waze Scan Closures: Initialized!`);
     }
 
