@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.12
+// @version      0.0.13
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -109,20 +109,30 @@
                 // Locally store tracked closures
                 trackedClosures.push(i.id)
                 if (i.segmentId !== null) i.segment = sdk.DataModel.Segments.getById({ segmentId: i.segmentId });
-                i.roadType = I18n.t("segment.road_types")[i.segment.roadType];
-                i.roadTypeEnum = i.segment.roadType;
-                i.lon = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[0], 0) / i.segment.geometry.coordinates.length;
-                i.lat = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[1], 0) / i.segment.geometry.coordinates.length;
-                if (i.segment !== undefined && i.segment !== null) i.primaryStreet = sdk.DataModel.Streets.getById({ streetId: i.segment.primaryStreetId });
-                location.push(i.primaryStreet.englishName || i.primaryStreet.name);
-                if (i.primaryStreet !== undefined && i.primaryStreet !== null) i.city = sdk.DataModel.Cities.getById({ cityId: i.primaryStreet.cityId });
-                location.push(i.city.name);
-                if (i.city !== undefined && i.city !== null) i.state = sdk.DataModel.States.getById({ stateId: i.city.stateId });
-                if (i.state !== undefined && i.state !== null) delete i.state.geometry;
-                location.push(i.state.name);
-                if (i.city !== undefined && i.city !== null) i.country = sdk.DataModel.Countries.getById({ countryId: i.city.countryId });
-                if (i.country !== undefined && i.country !== null) removeObjectProperties(i.country, ['restrictionSubscriptions', 'defaultLaneWidthPerRoadType']);
-                location.push(i.country.name);
+                if (i.segment !== undefined && i.segment !== null) {
+                    i.roadType = I18n.t("segment.road_types")[i.segment.roadType];
+                    i.roadTypeEnum = i.segment.roadType;
+                    i.lon = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[0], 0) / i.segment.geometry.coordinates.length;
+                    i.lat = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[1], 0) / i.segment.geometry.coordinates.length;
+                    i.primaryStreet = sdk.DataModel.Streets.getById({ streetId: i.segment.primaryStreetId });
+                }
+                if (i.primaryStreet !== undefined && i.primaryStreet !== null) {
+                    i.city = sdk.DataModel.Cities.getById({ cityId: i.primaryStreet.cityId });
+                    location.push(i.primaryStreet.englishName || i.primaryStreet.name);
+                }
+                if (i.city !== undefined && i.city !== null) {
+                    i.state = sdk.DataModel.States.getById({ stateId: i.city.stateId });
+                    i.country = sdk.DataModel.Countries.getById({ countryId: i.city.countryId });
+                    location.push(i.city.name);
+                }
+                if (i.state !== undefined && i.state !== null) {
+                    delete i.state.geometry;
+                    location.push(i.state.name);
+                }
+                if (i.country !== undefined && i.country !== null) {
+                    removeObjectProperties(i.country, ['restrictionSubscriptions', 'defaultLaneWidthPerRoadType']);
+                     location.push(i.country.name);
+                }
                 i.location = location.join(", ");
                 i.createdBy = i.modificationData.createdBy;
                 i.createdOn = i.modificationData.createdOn;
