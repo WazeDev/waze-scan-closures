@@ -3,7 +3,7 @@
     "REGION_NAME_HERE": {
       "locationKeywordsFilter": ["KEYWORDS_HERE"],
       "env": "",
-      "departmentOfTransporationUrl": "DOT_URL_HERE_USE_{lat}_FOR_LATITUDE_USE_{lon}_FOR_LONGITUDE",
+      "departmentOfTransporationUrl": "DOT_URL_HERE_USE_{lat}_FOR_LATITUDE_USE_{lon}_FOR_LONGITUDE_OR_LEAVE_BLANK",
       "webhooks": [
         {
           "url": "EXAMPLE_WEBHOOK",
