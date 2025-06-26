@@ -21,6 +21,15 @@ catch (err) {
     }
     process.exit(1);
 }
+fs.watchFile(configPath, { interval: 15000 }, () => {
+    try {
+        cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
+        console.log("🔄 config.json reloaded");
+    }
+    catch (err) {
+        console.error("❌ Failed to reload config.json:", err);
+    }
+});
 const tileServers = [
     "https://editor-tiles-${env}-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
     "https://editor-tiles-${env}-2.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
@@ -326,7 +335,23 @@ const server = http.createServer((req, res) => {
         req.on("end", async () => {
             try {
                 const data = JSON.parse(body);
-                if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
+                const user = data.userName;
+                let mapping = {};
+                if (Array.isArray(cfg.whitelist)) {
+                    cfg.whitelist.forEach(u => mapping[u] = true);
+                }
+                else {
+                    mapping = { ...(cfg.whitelist || {}) };
+                }
+                if (!(user in mapping)) {
+                    mapping[user] = false;
+                    cfg.whitelist = mapping;
+                    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
+                    res.statusCode = 404;
+                    res.end("Not Found");
+                    return;
+                }
+                if (!mapping[user]) {
                     res.statusCode = 404;
                     res.end("Not Found");
                     return;
@@ -336,8 +361,8 @@ const server = http.createServer((req, res) => {
                 res.end("Upload complete");
             }
             catch {
-                res.statusCode = 404;
-                res.end("Not Found");
+                res.statusCode = 400;
+                res.end("Invalid JSON");
             }
         });
         return;
@@ -348,20 +373,36 @@ const server = http.createServer((req, res) => {
         req.on("end", async () => {
             try {
                 const data = JSON.parse(body);
-                if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
+                const user = data.userName;
+                let mapping = {};
+                if (Array.isArray(cfg.whitelist)) {
+                    cfg.whitelist.forEach(u => mapping[u] = true);
+                }
+                else {
+                    mapping = { ...(cfg.whitelist || {}) };
+                }
+                if (!(user in mapping)) {
+                    mapping[user] = false;
+                    cfg.whitelist = mapping;
+                    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
                     res.statusCode = 404;
                     res.end("Not Found");
                     return;
                 }
+                if (!mapping[user]) {
+                    res.statusCode = 404;
+                    res.end("Not Found");
+                    return;
+                }
+                res.statusCode = 200;
+                res.setHeader("Content-Type", "application/json");
+                res.end(JSON.stringify(Object.keys(tracked), null, 2));
             }
             catch {
-                res.statusCode = 404;
-                res.end("Not Found");
+                res.statusCode = 400;
+                res.end("Invalid JSON");
             }
         });
-        res.statusCode = 200;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify(Object.keys(tracked), null, 2));
         return;
     }
     res.statusCode = 404;

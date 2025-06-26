@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 // load config.json
 const configPath = path.resolve(__dirname, "..", "config.json");
-let cfg: { regionBoundaries: { [x: string]: any; }, loop?: boolean; whitelist?: string[]; }
+let cfg: { regionBoundaries: { [x: string]: any; }, loop?: boolean; whitelist?: string[] | Record<string, boolean>; }
 try {
   cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
 } catch (err) {
@@ -25,6 +25,16 @@ try {
   }
   process.exit(1);
 }
+
+// ← reload config.json every 15 seconds
+fs.watchFile(configPath, { interval: 15000 }, () => {
+  try {
+    cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    console.log("🔄 config.json reloaded");
+  } catch (err) {
+    console.error("❌ Failed to reload config.json:", err);
+  }
+});
 
 const tileServers = [
   "https://editor-tiles-${env}-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
@@ -383,18 +393,36 @@ const server = http.createServer((req, res) => {
     req.on("end", async () => {
       try {
         const data = JSON.parse(body);
-        if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
+        const user = data.userName;
+        // normalize old-array or object whitelist
+        let mapping: Record<string, boolean> = {};
+        if (Array.isArray(cfg.whitelist)) {
+          cfg.whitelist.forEach(u => mapping[u] = true);
+        } else {
+          mapping = { ...(cfg.whitelist || {}) };
+        }
+        // add unknown user as false
+        if (!(user in mapping)) {
+          mapping[user] = false;
+          cfg.whitelist = mapping;
+          fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
           res.statusCode = 404;
           res.end("Not Found");
           return;
         }
+        // block if explicitly false
+        if (!mapping[user]) {
+          res.statusCode = 404;
+          res.end("Not Found");
+          return;
+        }
+        // allowed → process
         await updateTracking(data);
         res.statusCode = 200;
         res.end("Upload complete");
-        //console.log(`👀 ${data.closures.length} closures uploaded successfully.`);
       } catch {
-        res.statusCode = 404;
-        res.end("Not Found");
+        res.statusCode = 400;
+        res.end("Invalid JSON");
       }
     });
     return;
@@ -402,22 +430,40 @@ const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", chunk => { body += chunk; });
     req.on("end", async () => {
-    try {
-      const data = JSON.parse(body);
-      if (cfg.whitelist && cfg.whitelist.includes(data.userName) === false) {
-        res.statusCode = 404;
-        res.end("Not Found");
-        return;
+      try {
+        const data = JSON.parse(body);
+        const user = data.userName;
+        // normalize old-array or object whitelist
+        let mapping: Record<string, boolean> = {};
+        if (Array.isArray(cfg.whitelist)) {
+          cfg.whitelist.forEach(u => mapping[u] = true);
+        } else {
+          mapping = { ...(cfg.whitelist || {}) };
+        }
+        // add unknown user as false
+        if (!(user in mapping)) {
+          mapping[user] = false;
+          cfg.whitelist = mapping;
+          fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
+          res.statusCode = 404;
+          res.end("Not Found");
+          return;
+        }
+        // block if explicitly false
+        if (!mapping[user]) {
+          res.statusCode = 404;
+          res.end("Not Found");
+          return;
+        }
+        // allowed → return tracked list
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify(Object.keys(tracked), null, 2));
+      } catch {
+        res.statusCode = 400;
+        res.end("Invalid JSON");
       }
-    } catch {
-      res.statusCode = 404;
-      res.end("Not Found");
-    }
-  })
-    res.statusCode = 200;
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify(Object.keys(tracked), null, 2));
-    //console.log(`👀 Tracked closures requested, returning ${Object.keys(tracked).length} entries.`);
+    });
     return;
   }
   res.statusCode = 404;
