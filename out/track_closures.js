@@ -345,6 +345,7 @@ const server = http.createServer((req, res) => {
                 }
                 if (!(user in mapping)) {
                     mapping[user] = false;
+                    console.log(`➕ Added new user to whitelist: '${user}'`);
                     cfg.whitelist = mapping;
                     fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
                     res.statusCode = 404;
@@ -383,6 +384,7 @@ const server = http.createServer((req, res) => {
                 }
                 if (!(user in mapping)) {
                     mapping[user] = false;
+                    console.log(`➕ Added new user to whitelist: '${user}' = false`);
                     cfg.whitelist = mapping;
                     fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
                     res.statusCode = 404;
