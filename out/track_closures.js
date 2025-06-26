@@ -166,6 +166,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
         regionCfg = cfg.regionBoundaries[region];
     }
     else {
+        delete tracked[id];
         console.warn(`Closure does not match any region, ignoring...`);
         return;
     }
