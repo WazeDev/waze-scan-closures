@@ -457,6 +457,11 @@ const server = http.createServer((req, res) => {
         }
         const data = JSON.parse(body);
         const user = data.userName;
+        if (user === "undefined" || user === "null") {
+          res.statusCode = 404;
+          res.end("Not Found");
+          return;
+        }
         // normalize old-array or object whitelist
         let mapping: Record<string, boolean> = {};
         if (Array.isArray(cfg.whitelist)) {
