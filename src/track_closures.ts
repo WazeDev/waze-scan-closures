@@ -391,6 +391,8 @@ const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", chunk => { body += chunk; });
     req.on("end", async () => {
+      if (res.headersSent) return; // Prevent duplicate responses
+      
       try {
         if (!body.trim()) {
           console.warn("Received empty request body for uploadClosures");
@@ -427,18 +429,20 @@ const server = http.createServer((req, res) => {
         await updateTracking(data);
         res.statusCode = 200;
         res.end("Upload complete");
-        return;
       } catch (err) {
-        res.statusCode = 400;
-        res.end("Error");
+        if (!res.headersSent) {
+          res.statusCode = 400;
+          res.end("Error");
+        }
         console.error("❌ Failed to process upload:", err);
-        return;
       }
     });
   } else if (url.pathname === "/trackedClosures") {
     let body = "";
     req.on("data", chunk => { body += chunk; });
     req.on("end", async () => {
+      if (res.headersSent) return; // Prevent duplicate responses
+      
       try {
         if (!body.trim()) {
           console.warn("Received empty request body for trackedClosures");
@@ -475,18 +479,21 @@ const server = http.createServer((req, res) => {
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(Object.keys(tracked), null, 2));
-        return;
       } catch (err) {
-        res.statusCode = 400;
-        res.end("Error");
+        if (!res.headersSent) {
+          res.statusCode = 400;
+          res.end("Error");
+        }
         console.error("❌ Failed to process trackedClosures request:", err);
-        return;
       }
     });
+  } else {
+    // Handle unknown endpoints
+    if (!res.headersSent) {
+      res.statusCode = 404;
+      res.end("Not Found");
+    }
   }
-  res.statusCode = 404;
-  res.end("Not Found");
-  return;
 });
 
 server.listen(PORT, () => {
