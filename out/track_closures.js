@@ -333,7 +333,15 @@ const server = http.createServer((req, res) => {
         let body = "";
         req.on("data", chunk => { body += chunk; });
         req.on("end", async () => {
+            if (res.headersSent)
+                return;
             try {
+                if (!body.trim()) {
+                    console.warn("Received empty request body for uploadClosures");
+                    res.statusCode = 400;
+                    res.end("Empty request body");
+                    return;
+                }
                 const data = JSON.parse(body);
                 const user = data.userName;
                 let mapping = {};
@@ -361,18 +369,28 @@ const server = http.createServer((req, res) => {
                 res.statusCode = 200;
                 res.end("Upload complete");
             }
-            catch {
-                res.statusCode = 400;
-                res.end("Invalid JSON");
+            catch (err) {
+                if (!res.headersSent) {
+                    res.statusCode = 400;
+                    res.end("Error");
+                }
+                console.error("❌ Failed to process upload:", err);
             }
         });
-        return;
     }
     else if (url.pathname === "/trackedClosures") {
         let body = "";
         req.on("data", chunk => { body += chunk; });
         req.on("end", async () => {
+            if (res.headersSent)
+                return;
             try {
+                if (!body.trim()) {
+                    console.warn("Received empty request body for trackedClosures");
+                    res.statusCode = 400;
+                    res.end("Empty request body");
+                    return;
+                }
                 const data = JSON.parse(body);
                 const user = data.userName;
                 let mapping = {};
@@ -400,15 +418,21 @@ const server = http.createServer((req, res) => {
                 res.setHeader("Content-Type", "application/json");
                 res.end(JSON.stringify(Object.keys(tracked), null, 2));
             }
-            catch {
-                res.statusCode = 400;
-                res.end("Invalid JSON");
+            catch (err) {
+                if (!res.headersSent) {
+                    res.statusCode = 400;
+                    res.end("Error");
+                }
+                console.error("❌ Failed to process trackedClosures request:", err);
             }
         });
-        return;
     }
-    res.statusCode = 404;
-    res.end("Not Found");
+    else {
+        if (!res.headersSent) {
+            res.statusCode = 404;
+            res.end("Not Found");
+        }
+    }
 });
 server.listen(PORT, () => {
     console.log(`🚀 Server listening on ${PORT}…`);
