@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.11
+// @version      0.0.12
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -31,8 +31,9 @@
             scriptId: 'wme-scan-closures',
             scriptName: 'Waze Scan Closures'
         });
+        sdk.Events.trackDataModelEvents({ dataModelName: "roadClosures" });
         sdk.Events.on({
-            eventName: "wme-map-data-loaded",
+            eventName: "wme-data-model-objects-added",
             eventHandler: updateRoadClosures
         });
         userReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
