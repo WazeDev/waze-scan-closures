@@ -461,15 +461,17 @@ const server = http.createServer((req, res) => {
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(Object.keys(tracked), null, 2));
+        return;
       } catch {
         res.statusCode = 400;
         res.end("Invalid JSON");
+        return;
       }
     });
-    return;
   }
   res.statusCode = 404;
   res.end("Not Found");
+  return;
 });
 
 server.listen(PORT, () => {
