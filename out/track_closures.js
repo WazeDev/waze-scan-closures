@@ -167,7 +167,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
     }
     else {
         delete tracked[id];
-        console.warn(`Closure does not match any region, ignoring...`);
+        console.warn(`Closure is in a region that is not configured: ${location}`);
         return;
     }
     slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
