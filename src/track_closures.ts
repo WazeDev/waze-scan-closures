@@ -421,12 +421,13 @@ const server = http.createServer((req, res) => {
         await updateTracking(data);
         res.statusCode = 200;
         res.end("Upload complete");
+        return
       } catch {
         res.statusCode = 400;
         res.end("Invalid JSON");
+        return
       }
     });
-    return;
   } else if (url.pathname === "/trackedClosures") {
     let body = "";
     req.on("data", chunk => { body += chunk; });
