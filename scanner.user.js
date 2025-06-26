@@ -68,7 +68,7 @@
     }
 
     function getTrackedClosures() {
-        if (url === "") {
+        if (url === "" || wazeEditorName === undefined || wazeEditorName === null) {
             console.error("Waze Scan Closures: URL not set!");
             return;
         }
@@ -183,7 +183,7 @@
     }
 
     function sendClosures(uploadData) {
-        if (url === "") {
+        if (url === "" || wazeEditorName === undefined || wazeEditorName === null) {
             console.error("Waze Scan Closures: URL not set!");
             return;
         }
