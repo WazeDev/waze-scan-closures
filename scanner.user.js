@@ -39,6 +39,7 @@
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
         wazeEditorName = sdk.State.getUserInfo().userName;
+        console.log(`Waze Scan Closures: Logged in as ${wazeEditorName}`);
         getTrackedClosures();
         sdk.Events.trackDataModelEvents({
             dataModelName: "roadClosures"
