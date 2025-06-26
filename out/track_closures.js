@@ -344,6 +344,11 @@ const server = http.createServer((req, res) => {
                 }
                 const data = JSON.parse(body);
                 const user = data.userName;
+                if (user === "undefined" || user === "null") {
+                    res.statusCode = 404;
+                    res.end("Not Found");
+                    return;
+                }
                 let mapping = {};
                 if (Array.isArray(cfg.whitelist)) {
                     cfg.whitelist.forEach(u => mapping[u] = true);
@@ -393,6 +398,11 @@ const server = http.createServer((req, res) => {
                 }
                 const data = JSON.parse(body);
                 const user = data.userName;
+                if (user === "undefined" || user === "null") {
+                    res.statusCode = 404;
+                    res.end("Not Found");
+                    return;
+                }
                 let mapping = {};
                 if (Array.isArray(cfg.whitelist)) {
                     cfg.whitelist.forEach(u => mapping[u] = true);
