@@ -208,7 +208,7 @@ async function notifyDiscord({
     regionCfg = cfg.regionBoundaries[region];
   } else {
     delete tracked[id];
-    console.warn(`Closure does not match any region, ignoring...`);
+    console.warn(`Closure is in a region that is not configured: ${location}`);
     return;
   }
 
