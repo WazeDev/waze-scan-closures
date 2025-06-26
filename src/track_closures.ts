@@ -421,11 +421,12 @@ const server = http.createServer((req, res) => {
         await updateTracking(data);
         res.statusCode = 200;
         res.end("Upload complete");
-        return
-      } catch {
+        return;
+      } catch (err) {
         res.statusCode = 400;
-        res.end("Invalid JSON");
-        return
+        res.end("Error");
+        console.error("❌ Failed to process upload:", err);
+        return;
       }
     });
   } else if (url.pathname === "/trackedClosures") {
@@ -463,9 +464,10 @@ const server = http.createServer((req, res) => {
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(Object.keys(tracked), null, 2));
         return;
-      } catch {
+      } catch (err) {
         res.statusCode = 400;
-        res.end("Invalid JSON");
+        res.end("Error");
+        console.error("❌ Failed to process trackedClosures request:", err);
         return;
       }
     });
