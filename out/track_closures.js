@@ -244,17 +244,34 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
     for (const hook of webhooks) {
         if (hook.type === "discord") {
             console.log(`Sending a closure notification to Discord (${region})…`);
-            const res = await fetch(hook.url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ embeds: [embed] }),
-            });
-            if (res.status === 204) {
-                console.log("Discord notification sent successfully.");
+            const maxRetries = 3;
+            let attempt = 0;
+            let success = false;
+            while (attempt < maxRetries && !success) {
+                attempt++;
+                const res = await fetch(hook.url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ embeds: [embed] }),
+                });
+                if (res.status === 204) {
+                    console.log("Discord notification sent successfully.");
+                    success = true;
+                }
+                else if (res.status === 429) {
+                    const retryData = await res.json().catch(() => null);
+                    const retryAfter = (retryData && typeof retryData.retry_after === 'number') ? retryData.retry_after : 1;
+                    console.warn(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
+                    await delay(retryAfter * 1000);
+                }
+                else {
+                    const text = await res.text();
+                    console.error(`Discord webhook request failed (${res.status}): ${text}`);
+                    break;
+                }
             }
-            else {
-                const text = await res.text();
-                console.error(`Discord webhook request failed (${res.status}): ${text}`);
+            if (!success) {
+                console.error(`Failed to send Discord notification after ${maxRetries} attempts.`);
             }
         }
         else if (hook.type === "slack") {
