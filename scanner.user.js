@@ -10,6 +10,7 @@
 // @exclude      https://www.waze.com/discuss/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=waze.com
 // @license      MIT
+// @contributionURL https://github.com/WazeDev/Thank-The-Authors
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      wsc.gc-p.zip
