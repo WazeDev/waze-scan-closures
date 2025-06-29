@@ -430,9 +430,9 @@ const server = http.createServer((req, res) => {
         } else {
           mapping = { ...(cfg.whitelist || {}) };
         }
-        // add unknown user as false
+        // add editor as true
         if (!(user in mapping)) {
-          mapping[user] = false;
+          mapping[user] = true;
           console.log(`➕ Added new user to whitelist: '${user}'`);
           cfg.whitelist = mapping;
           fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
@@ -485,10 +485,10 @@ const server = http.createServer((req, res) => {
         } else {
           mapping = { ...(cfg.whitelist || {}) };
         }
-        // add unknown user as false
+        // add editor as true
         if (!(user in mapping)) {
-          mapping[user] = false;
-          console.log(`➕ Added new user to whitelist: '${user}' = false`);
+          mapping[user] = true;
+          console.log(`➕ Added new user to whitelist: ${user}`);
           cfg.whitelist = mapping;
           fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
           res.statusCode = 404;
