@@ -156,6 +156,7 @@ async function updateTracking(data: any) {
         location: c.location,
         roadType: c.roadType,
         roadTypeEnum: c.roadTypeEnum,
+        duration: c.duration || "Unknown" // use provided duration or default to "Unknown"
       });
     }
   }
@@ -180,6 +181,7 @@ async function notifyDiscord({
   location,
   roadType,
   roadTypeEnum,
+  duration = "Unknown"
 }: {
   id: string;
   segID: string;
@@ -191,6 +193,7 @@ async function notifyDiscord({
   location: string;
   roadType: string;
   roadTypeEnum: keyof typeof roadTypes;
+  duration?: string; // optional duration parameter
 }) {
   let slackLocation;
   let regionCfg;
@@ -276,6 +279,7 @@ async function notifyDiscord({
         name: "Reported at",
         value: `<t:${(timestamp / 1000).toFixed(0)}:F>`,
       },
+      { name: "Duration", value: duration },
       { name: "Segment Type", value: roadType, inline: true },
       {
         name: "Location",
@@ -352,7 +356,7 @@ async function notifyDiscord({
           fields: [
             {
               type: "mrkdwn",
-              text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>`
+              text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>\n*Duration*\n${duration}`
             }
           ]
         },

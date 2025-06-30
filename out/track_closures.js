@@ -139,6 +139,7 @@ async function updateTracking(data) {
                 location: c.location,
                 roadType: c.roadType,
                 roadTypeEnum: c.roadTypeEnum,
+                duration: c.duration || "Unknown"
             });
         }
     }
@@ -150,7 +151,7 @@ async function updateTracking(data) {
         }
     }
 }
-async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, lon, location, roadType, roadTypeEnum, }) {
+async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, lon, location, roadType, roadTypeEnum, duration = "Unknown" }) {
     let slackLocation;
     let regionCfg;
     const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
@@ -220,6 +221,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
                 name: "Reported at",
                 value: `<t:${(timestamp / 1000).toFixed(0)}:F>`,
             },
+            { name: "Duration", value: duration },
             { name: "Segment Type", value: roadType, inline: true },
             {
                 name: "Location",
@@ -295,7 +297,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
                     fields: [
                         {
                             type: "mrkdwn",
-                            text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>`
+                            text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>\n*Duration*\n${duration}`
                         }
                     ]
                 },
