@@ -254,7 +254,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
             "Department of Transportation Map Link";
         const lastField = embed.fields[embed.fields.length - 1];
         lastField.value +=
-            ` | [${linkName}](${dotMap})`;
+            ` | [${linkName} Link](${dotMap})`;
     }
     const webhooks = regionCfg.webhooks || [];
     for (const hook of webhooks) {
@@ -338,7 +338,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
                         {
                             type: "mrkdwn",
                             text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>` +
-                                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
+                                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel} Link>` : ""}`
                         }
                     ]
                 }
