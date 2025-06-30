@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Get latest commit, reset local directory to it
+git fetch origin
+git reset --hard origin/main
+
 # Kill any existing screen session named "waze-closure-tracking"
 screen -S waze-closure-tracking -X quit 2>/dev/null || true
 
