@@ -4,7 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "scan": "node out/scan_areas.js",
     "track": "node out/track_closures.js"
   },
   "devDependencies": {
