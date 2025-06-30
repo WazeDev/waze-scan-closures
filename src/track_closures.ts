@@ -3,6 +3,7 @@ import path from "path";
 import fetch from "node-fetch";
 import { fileURLToPath } from "url";
 import http from "http";
+import { log } from "console";
 
 const URL_HASH_FACTOR = (Math.sqrt(5) - 1) / 2;
 
@@ -11,6 +12,17 @@ const previewZoomLevel = 17;
 // emulate __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ── add timestamped log helpers ─────────────────────────────────────────
+function logInfo(msg: string) {
+  console.log(`[${new Date().toISOString()}] INFO: ${msg}`);
+}
+function logError(msg: string) {
+  console.error(`[${new Date().toISOString()}] ERROR: ${msg}`);
+}
+function logWarning(msg: string) {
+  console.warn(`[${new Date().toISOString()}] WARNING: ${msg}`);
+}
 
 // load config.json
 const configPath = path.resolve(__dirname, "..", "config.json");
@@ -25,17 +37,7 @@ try {
   }
   process.exit(1);
 }
-
-// ── add timestamped log helpers ─────────────────────────────────────────
-function logInfo(msg: string) {
-  console.log(`[${new Date().toISOString()}] INFO: ${msg}`);
-}
-function logError(msg: string) {
-  console.error(`[${new Date().toISOString()}] ERROR: ${msg}`);
-}
-function logWarning(msg: string) {
-  console.warn(`[${new Date().toISOString()}] WARNING: ${msg}`);
-}
+logInfo("🔧 Loaded config.json");
 
 // ← reload config.json every 15 seconds
 fs.watchFile(configPath, { interval: 15000 }, () => {
@@ -555,5 +557,33 @@ const server = http.createServer((req, res) => {
       res.end("Not Found");
     }
   }
+});
+
+// Start the server
+server.listen(PORT, () => {
+  logInfo(`🚀 Server started on port ${PORT}`);
+  logInfo("🔍 Listening for closure uploads...");
+});
+
+// Handle server errors
+server.on('error', (err) => {
+  logError(`❌ Server error: ${err.message}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logInfo('📴 Received SIGTERM, shutting down gracefully');
+  server.close(() => {
+    logInfo('💤 Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logInfo('📴 Received SIGINT, shutting down gracefully');
+  server.close(() => {
+    logInfo('💤 Process terminated');
+    process.exit(0);
+  });
 });
 

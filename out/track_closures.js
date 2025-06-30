@@ -7,6 +7,15 @@ const URL_HASH_FACTOR = (Math.sqrt(5) - 1) / 2;
 const previewZoomLevel = 17;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+function logInfo(msg) {
+    console.log(`[${new Date().toISOString()}] INFO: ${msg}`);
+}
+function logError(msg) {
+    console.error(`[${new Date().toISOString()}] ERROR: ${msg}`);
+}
+function logWarning(msg) {
+    console.warn(`[${new Date().toISOString()}] WARNING: ${msg}`);
+}
 const configPath = path.resolve(__dirname, "..", "config.json");
 let cfg;
 try {
@@ -21,15 +30,7 @@ catch (err) {
     }
     process.exit(1);
 }
-function logInfo(msg) {
-    console.log(`[${new Date().toISOString()}] INFO: ${msg}`);
-}
-function logError(msg) {
-    console.error(`[${new Date().toISOString()}] ERROR: ${msg}`);
-}
-function logWarning(msg) {
-    console.warn(`[${new Date().toISOString()}] WARNING: ${msg}`);
-}
+logInfo("🔧 Loaded config.json");
 fs.watchFile(configPath, { interval: 15000 }, () => {
     try {
         cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
@@ -489,4 +490,25 @@ const server = http.createServer((req, res) => {
             res.end("Not Found");
         }
     }
+});
+server.listen(PORT, () => {
+    logInfo(`🚀 Server started on port ${PORT}`);
+    logInfo("🔍 Listening for closure uploads...");
+});
+server.on('error', (err) => {
+    logError(`❌ Server error: ${err.message}`);
+});
+process.on('SIGTERM', () => {
+    logInfo('📴 Received SIGTERM, shutting down gracefully');
+    server.close(() => {
+        logInfo('💤 Process terminated');
+        process.exit(0);
+    });
+});
+process.on('SIGINT', () => {
+    logInfo('📴 Received SIGINT, shutting down gracefully');
+    server.close(() => {
+        logInfo('💤 Process terminated');
+        process.exit(0);
+    });
 });
