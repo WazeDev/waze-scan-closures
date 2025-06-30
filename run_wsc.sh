@@ -13,3 +13,5 @@ screen -d -m -S waze-closure-tracking -L -Logfile log.txt sudo npm run track
 echo "Started Waze Closure Tracking in screen session 'waze-closure-tracking'"
 echo "To view the session: screen -r waze-closure-tracking"
 echo "To view the log: tail -f log.txt"
+
+chmod +x run_wsc.sh
