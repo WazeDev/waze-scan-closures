@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.20
+// @version      0.0.21
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -163,16 +163,25 @@
                 return str || '0m';
             };
 
-            userReportedClosures.forEach(i => {
+            // Filter out closures without valid segments first
+            const validClosures = userReportedClosures.filter(closure => {
+                if (closure.segmentId !== null) {
+                    closure.segment = sdk.DataModel.Segments.getById({
+                        segmentId: closure.segmentId
+                    });
+                }
+                
+                if (!closure.segment) {
+                    console.log(`Waze Scan Closures: Skipping closure ${closure.id} - no segment found`);
+                    return false;
+                }
+                return true;
+            });
+
+            validClosures.forEach(i => {
                 // track
                 trackedClosures.push(i.id);
 
-                // fetch segment & geometry
-                if (i.segmentId !== null) {
-                    i.segment = sdk.DataModel.Segments.getById({
-                        segmentId: i.segmentId
-                    });
-                }
                 if (i.segment) {
                     i.roadType =
                         I18n.t('segment.road_types')[i.segment.roadType];
@@ -262,7 +271,7 @@
             const uploadData = {
                 // bbox: sdk.Map.getMapExtent(),
                 userName: wazeEditorName,
-                closures: userReportedClosures
+                closures: validClosures
             };
             sendClosures(uploadData);
         } else {
