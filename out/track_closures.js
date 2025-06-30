@@ -441,9 +441,18 @@ const server = http.createServer((req, res) => {
                     res.end("Not Found");
                     return;
                 }
+                const envFilter = data.env;
+                const ids = Object.entries(tracked)
+                    .filter(([id, info]) => {
+                    if (!envFilter)
+                        return true;
+                    const region = cfg.regionBoundaries[info.country];
+                    return region?.env === envFilter;
+                })
+                    .map(([id]) => id);
                 res.statusCode = 200;
                 res.setHeader("Content-Type", "application/json");
-                res.end(JSON.stringify(Object.keys(tracked), null, 2));
+                res.end(JSON.stringify(ids, null, 2));
             }
             catch (err) {
                 if (!res.headersSent) {
@@ -453,6 +462,7 @@ const server = http.createServer((req, res) => {
                 console.error("❌ Failed to process trackedClosures request:", err);
             }
         });
+        return;
     }
     else {
         if (!res.headersSent) {
