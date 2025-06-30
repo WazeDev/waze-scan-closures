@@ -291,6 +291,8 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
         }
         else if (hook.type === "slack") {
             logInfo(`Sending a closure notification to Slack (${region})…`);
+            const dotLabel = regionCfg.departmentOfTransporationName
+                ?? "Department of Transportation Map Link";
             const slackBlocks = [
                 {
                     type: "section",
@@ -334,7 +336,8 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
                     fields: [
                         {
                             type: "mrkdwn",
-                            text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|Department of Transportation Map Link>` : ""}`
+                            text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>` +
+                                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
                         }
                     ]
                 }
