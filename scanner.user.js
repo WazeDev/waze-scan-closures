@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.18
+// @version      0.0.19
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -108,12 +108,13 @@
 
     function filterUserClosures(closures) {
         return closures.filter(c => {
-            // must have no description, valid dates, and not already tracked
+            // must have no description, valid dates, not already tracked, and no older than 3 days
             if (
                 c.description ||
                 !c.startDate ||
                 !c.endDate ||
-                trackedClosures.includes(c.id)
+                trackedClosures.includes(c.id) ||
+                new Date(c.startDate) < Date.now() - 3 * 24 * 60 * 60 * 1000
             ) {
                 return false;
             }
