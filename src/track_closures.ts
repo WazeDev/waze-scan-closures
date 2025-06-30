@@ -19,20 +19,31 @@ try {
   cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
 } catch (err) {
   if (err instanceof Error) {
-    console.error("❌ Failed to load config.json:", err.message);
+    logError(`❌ Failed to load config.json: ${err.message}`);
   } else {
-    console.error("❌ Failed to load config.json:", err);
+    logError(`❌ Failed to load config.json: ${err}`);
   }
   process.exit(1);
+}
+
+// ── add timestamped log helpers ─────────────────────────────────────────
+function logInfo(msg: string) {
+  console.log(`[${new Date().toISOString()}] INFO: ${msg}`);
+}
+function logError(msg: string) {
+  console.error(`[${new Date().toISOString()}] ERROR: ${msg}`);
+}
+function logWarning(msg: string) {
+  console.warn(`[${new Date().toISOString()}] WARNING: ${msg}`);
 }
 
 // ← reload config.json every 15 seconds
 fs.watchFile(configPath, { interval: 15000 }, () => {
   try {
     cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    console.log("🔄 config.json reloaded");
+    logInfo("🔄 config.json reloaded");
   } catch (err) {
-    console.error("❌ Failed to reload config.json:", err);
+    logError(`❌ Failed to reload config.json:) ${err instanceof Error ? err.message : err}`);
   }
 });
 
@@ -161,7 +172,7 @@ async function updateTracking(data: any) {
     }
   }
   if (newClosures.length) {
-    console.log(`👀 ${userName} found ${newClosures.length} new closures!`);
+    logInfo(`👀 ${userName} found ${newClosures.length} new closures!`);
     for (const closure of newClosures) {
       await delay(1000); // delay to avoid rate limiting
       await notifyDiscord(closure);
@@ -205,13 +216,13 @@ async function notifyDiscord({
     return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
   });
   if (region) {
-    console.log(`Assigning closure ${id} to region ${region}`);
+    logInfo(`Assigning closure ${id} to region ${region}`);
     tracked[id].country = region;
     fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
     regionCfg = cfg.regionBoundaries[region];
   } else {
     delete tracked[id];
-    console.warn(`Closure is in a region that is not configured: ${location}`);
+    logError(`Closure is in a region that is not configured: ${location}`);
     return;
   }
 
@@ -309,7 +320,7 @@ async function notifyDiscord({
   const webhooks = regionCfg.webhooks || [];
   for (const hook of webhooks) {
     if (hook.type === "discord") {
-      console.log(`Sending a closure notification to Discord (${region})…`);
+      logInfo(`Sending a closure notification to Discord (${region})…`);
       const maxRetries = 3;
       let attempt = 0;
       let success = false;
@@ -321,24 +332,24 @@ async function notifyDiscord({
           body: JSON.stringify({ embeds: [embed] }),
         });
         if (res.status === 204) {
-          console.log("Discord notification sent successfully.");
+          logInfo("Discord notification sent successfully.");
           success = true;
         } else if (res.status === 429) {
           const retryData: any = await res.json().catch(() => null);
           const retryAfter = (retryData && typeof retryData.retry_after === 'number') ? retryData.retry_after : 1;
-          console.warn(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
+          logWarning(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
           await delay(retryAfter * 1000);
         } else {
           const text = await res.text();
-          console.error(`Discord webhook request failed (${res.status}): ${text}`);
+          logError(`Discord webhook request failed (${res.status}): ${text}`);
           break;
         }
       }
       if (!success) {
-        console.error(`Failed to send Discord notification after ${maxRetries} attempts.`);
+        logError(`Failed to send Discord notification after ${maxRetries} attempts.`);
       }
     } else if (hook.type === "slack") {
-      console.log(`Sending a closure notification to Slack (${region})…`);
+      logInfo(`Sending a closure notification to Slack (${region})…`);
       const slackBlocks = [
         {
           type: "section",
@@ -393,13 +404,13 @@ async function notifyDiscord({
         body: JSON.stringify({ blocks: slackBlocks }),
       });
       if (slackRes.ok) {
-        console.log("Slack notification sent successfully.");
+        logInfo("Slack notification sent successfully.");
       } else {
         const text = await slackRes.text();
-        console.error(`Slack webhook request failed (${slackRes.status}): ${text}`);
+        logError(`Slack webhook request failed (${slackRes.status}): ${text}`);
       }
     } else {
-      console.warn(`Unknown webhook type: ${hook.type}`);
+      logWarning(`Unknown webhook type: ${hook.type}`);
     }
   }
   return;
@@ -417,7 +428,7 @@ const server = http.createServer((req, res) => {
       
       try {
         if (!body.trim()) {
-          console.warn("Received empty request body for uploadClosures");
+          logWarning("Received empty request body for uploadClosures");
           res.statusCode = 400;
           res.end("Empty request body");
           return;
@@ -439,7 +450,7 @@ const server = http.createServer((req, res) => {
         // add editor as true
         if (!(user in mapping)) {
           mapping[user] = true;
-          console.log(`➕ Added new user to whitelist: ${user}`);
+          logInfo(`➕ Added new user to whitelist: ${user}`);
           cfg.whitelist = mapping;
           fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
           res.statusCode = 404;
@@ -461,7 +472,7 @@ const server = http.createServer((req, res) => {
           res.statusCode = 400;
           res.end("Error");
         }
-        console.error("❌ Failed to process upload:", err);
+        logError(`❌ Failed to process upload: ${err instanceof Error ? err.message : err}`);
       }
     });
   } else if (url.pathname === "/trackedClosures") {
@@ -472,7 +483,7 @@ const server = http.createServer((req, res) => {
       
       try {
         if (!body.trim()) {
-          console.warn("Received empty request body for trackedClosures");
+          logWarning("Received empty request body for trackedClosures");
           res.statusCode = 400;
           res.end("Empty request body");
           return;
@@ -494,7 +505,7 @@ const server = http.createServer((req, res) => {
         // add editor as true
         if (!(user in mapping)) {
           mapping[user] = true;
-          console.log(`➕ Added new user to whitelist: ${user}`);
+          logInfo(`➕ Added new user to whitelist: ${user}`);
           cfg.whitelist = mapping;
           fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), "utf8");
           res.statusCode = 404;
@@ -524,7 +535,7 @@ const server = http.createServer((req, res) => {
           res.statusCode = 400;
           res.end("Error");
         }
-        console.error("❌ Failed to process trackedClosures request:", err);
+        logError(`❌ Failed to process trackedClosures request: ${err instanceof Error ? err.message : err}`);
       }
     });
     return;
@@ -537,6 +548,3 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server listening on ${PORT}…`);
-});
