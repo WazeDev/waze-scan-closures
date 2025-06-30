@@ -211,7 +211,7 @@ async function notifyDiscord({
   let slackLocation;
   let regionCfg;
   // check location if any keywords from region.locationKeywordsFilter are present
-  const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+  const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
   const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
   const region = Object.keys(cfg.regionBoundaries).find(r => {
     const f = cfg.regionBoundaries[r].locationKeywordsFilter;
