@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.16
+// @version      0.0.17
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -73,7 +73,10 @@
             console.error("Waze Scan Closures: URL not set!");
             return;
         }
-        let data = {userName: wazeEditorName, env: sdk.Settings.getRegionCode() }
+        let data = {
+            userName: wazeEditorName,
+            env: sdk.Settings.getRegionCode()
+        }
         let details = {
             method: "POST",
             data: JSON.stringify(data),
@@ -91,23 +94,39 @@
         GM_xmlhttpRequest(details);
     }
 
+    // Allowed durations (in ms):
+    const ALLOWED_DURATIONS = [
+        30 * 60 * 1000, // 30 minutes
+        1 * 60 * 60 * 1000, // 1 hour
+        5 * 60 * 60 * 1000, // 5 hours
+        16 * 60 * 60 * 1000, // 16 hours
+        72 * 60 * 60 * 1000 // 72 hours
+    ];
+
+    // Margin of error around each target (1 minute = 60 000 ms)
+    const MARGIN = 60 * 1000;
+
     function filterUserClosures(closures) {
         return closures.filter(c => {
+            // must have no description, valid dates, and not already tracked
             if (
-                !c.description &&
-                c.startDate &&
-                c.endDate &&
-                !trackedClosures.includes(c.id)
+                c.description ||
+                !c.startDate ||
+                !c.endDate ||
+                trackedClosures.includes(c.id)
             ) {
-                const duration =
-                    new Date(c.endDate).getTime() -
-                    new Date(c.startDate).getTime();
-                const target = 60 * 60 * 1000; // 1 hour in ms
-                const margin = 60 * 1000; // 1 minute in ms
-
-                return Math.abs(duration - target) <= margin;
+                return false;
             }
-            return false;
+
+            // compute actual duration in ms
+            const duration =
+                new Date(c.endDate).getTime() -
+                new Date(c.startDate).getTime();
+
+            // check if it matches any allowed duration within the margin
+            return ALLOWED_DURATIONS.some(
+                target => Math.abs(duration - target) <= MARGIN
+            );
         });
     }
 
@@ -122,33 +141,63 @@
     };
 
     function updateRoadClosures() {
-        let currentUserReportedClosures = filterUserClosures(sdk.DataModel.RoadClosures.getAll());
+        let currentUserReportedClosures = filterUserClosures(
+            sdk.DataModel.RoadClosures.getAll()
+        );
         if (currentUserReportedClosures.length !== 0) {
             userReportedClosures = currentUserReportedClosures;
-            console.log(`Waze Scan Closures: Found ${userReportedClosures.length} user reported closures!`)
-            userReportedClosures.forEach((i) => {
-                let location = []
-                // Locally store tracked closures
-                trackedClosures.push(i.id)
-                if (i.segmentId !== null) i.segment = sdk.DataModel.Segments.getById({
-                    segmentId: i.segmentId
-                });
-                if (i.segment !== undefined && i.segment !== null) {
-                    i.roadType = I18n.t("segment.road_types")[i.segment.roadType];
+            console.log(
+                `Waze Scan Closures: Found ${userReportedClosures.length} user reported ` +
+                'closures!'
+            );
+
+            // helper: convert ms → "Xh Ym"
+            const formatDuration = ms => {
+                const totalMin = Math.round(ms / 60000);
+                const hrs = Math.floor(totalMin / 60);
+                const mins = totalMin % 60;
+                let str = '';
+                if (hrs) str += `${hrs}h`;
+                if (mins) str += `${hrs ? ' ' : ''}${mins}m`;
+                return str || '0m';
+            };
+
+            userReportedClosures.forEach(i => {
+                // track
+                trackedClosures.push(i.id);
+
+                // fetch segment & geometry
+                if (i.segmentId !== null) {
+                    i.segment = sdk.DataModel.Segments.getById({
+                        segmentId: i.segmentId
+                    });
+                }
+                if (i.segment) {
+                    i.roadType =
+                        I18n.t('segment.road_types')[i.segment.roadType];
                     i.roadTypeEnum = i.segment.roadType;
-                    i.lon = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[0], 0) / i.segment.geometry.coordinates.length;
-                    i.lat = i.segment.geometry.coordinates.reduce((sum, coord) => sum + coord[1], 0) / i.segment.geometry.coordinates.length;
+                    i.lon = i.segment.geometry.coordinates
+                        .reduce((s, c) => s + c[0], 0) /
+                        i.segment.geometry.coordinates.length;
+                    i.lat = i.segment.geometry.coordinates
+                        .reduce((s, c) => s + c[1], 0) /
+                        i.segment.geometry.coordinates.length;
                     i.primaryStreet = sdk.DataModel.Streets.getById({
                         streetId: i.segment.primaryStreetId
                     });
                 }
-                if (i.primaryStreet !== undefined && i.primaryStreet !== null) {
+
+                // build human-readable location
+                const location = [];
+                if (i.primaryStreet) {
                     i.city = sdk.DataModel.Cities.getById({
                         cityId: i.primaryStreet.cityId
                     });
-                    location.push(i.primaryStreet.englishName || i.primaryStreet.name);
+                    location.push(
+                        i.primaryStreet.englishName || i.primaryStreet.name
+                    );
                 }
-                if (i.city !== undefined && i.city !== null) {
+                if (i.city) {
                     i.state = sdk.DataModel.States.getById({
                         stateId: i.city.stateId
                     });
@@ -157,28 +206,57 @@
                     });
                     location.push(i.city.name);
                 }
-                if (i.state !== undefined && i.state !== null) {
+                if (i.state) {
                     delete i.state.geometry;
                     location.push(i.state.name);
                 }
-                if (i.country !== undefined && i.country !== null) {
-                    removeObjectProperties(i.country, ['restrictionSubscriptions', 'defaultLaneWidthPerRoadType']);
+                if (i.country) {
+                    removeObjectProperties(i.country, [
+                        'restrictionSubscriptions',
+                        'defaultLaneWidthPerRoadType'
+                    ]);
                     location.push(i.country.name);
                 }
-                i.location = location.join(", ");
+                i.location = location.join(', ');
+
+                // metadata
                 i.createdBy = i.modificationData.createdBy;
                 i.createdOn = i.modificationData.createdOn;
-                i.isForward ? i.direction = "A➜B" : i.direction = "B➜A";
-                removeObjectProperties(i, ['city', 'state', 'country', 'primaryStreet', 'isPermanent', 'description', 'endDate', 'modificationData', 'startDate', 'isForward', 'segment', 'status', 'trafficEventId'])
+                i.direction = i.isForward ? 'A➜B' : 'B➜A';
+
+                // ← NEW: compute duration
+                const durationMs =
+                    new Date(i.endDate).getTime() -
+                    new Date(i.startDate).getTime();
+                i.durationMs = durationMs;
+                i.duration = formatDuration(durationMs);
+
+                // strip out unneeded props before upload
+                removeObjectProperties(i, [
+                    'city',
+                    'state',
+                    'country',
+                    'primaryStreet',
+                    'isPermanent',
+                    'description',
+                    'endDate',
+                    'modificationData',
+                    'startDate',
+                    'isForward',
+                    'segment',
+                    'status',
+                    'trafficEventId'
+                ]);
             });
-            let uploadData = {
-                //bbox: sdk.Map.getMapExtent(),
+
+            const uploadData = {
+                // bbox: sdk.Map.getMapExtent(),
                 userName: wazeEditorName,
                 closures: userReportedClosures
             };
             sendClosures(uploadData);
         } else {
-            console.log(`Waze Scan Closures: No new closures found...`)
+            console.log('Waze Scan Closures: No new closures found...');
         }
     }
 
