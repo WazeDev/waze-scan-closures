@@ -417,6 +417,7 @@ const server = http.createServer((req, res) => {
                 logError(`❌ Failed to process upload: ${err instanceof Error ? err.message : err}`);
             }
         });
+        return;
     }
     else if (url.pathname === "/trackedClosures") {
         let body = "";

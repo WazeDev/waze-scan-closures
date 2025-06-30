@@ -483,6 +483,7 @@ const server = http.createServer((req, res) => {
         logError(`❌ Failed to process upload: ${err instanceof Error ? err.message : err}`);
       }
     });
+    return;   // ← ensure we don't fall through
   } else if (url.pathname === "/trackedClosures") {
     let body = "";
     req.on("data", chunk => { body += chunk; });
