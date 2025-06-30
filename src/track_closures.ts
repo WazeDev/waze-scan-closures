@@ -311,9 +311,13 @@ async function notifyDiscord({
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
-    // append DoT link to the last field (Links)
-    const last = embed.fields[embed.fields.length - 1];
-    (last as { value: string }).value += ` | [Department of Transportation Map Link](${dotMap})`;
+    // use custom name if provided, else default
+    const linkName =
+      regionCfg.departmentOfTransporationName ??
+      "Department of Transportation Map Link";
+    const lastField = embed.fields[embed.fields.length - 1];
+    (lastField as { value: string }).value +=
+      ` | [${linkName}](${dotMap})`;
   }
 
   // 4) send to webhooks

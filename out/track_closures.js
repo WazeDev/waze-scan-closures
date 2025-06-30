@@ -249,8 +249,11 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
         },
     };
     if (regionCfg.departmentOfTransporationUrl) {
-        const last = embed.fields[embed.fields.length - 1];
-        last.value += ` | [Department of Transportation Map Link](${dotMap})`;
+        const linkName = regionCfg.departmentOfTransporationName ??
+            "Department of Transportation Map Link";
+        const lastField = embed.fields[embed.fields.length - 1];
+        lastField.value +=
+            ` | [${linkName}](${dotMap})`;
     }
     const webhooks = regionCfg.webhooks || [];
     for (const hook of webhooks) {
