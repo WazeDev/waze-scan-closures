@@ -195,9 +195,10 @@
                         cityId: i.primaryStreet.cityId
                     });
                     if (i.primaryStreet.name !== '' || i.primaryStreet.englishName !== '') {
-                        location.push(
-                        i.primaryStreet.englishName || i.primaryStreet.name
-                    );
+                        const streetName = i.primaryStreet.englishName || i.primaryStreet.name;
+                        if (streetName && streetName.trim() !== '') {
+                            location.push(streetName);
+                        }
                     }
                 }
                 if (i.city) {
@@ -207,13 +208,13 @@
                     i.country = sdk.DataModel.Countries.getById({
                         countryId: i.city.countryId
                     });
-                    if (i.city.name !== '') {
+                    if (i.city.name && i.city.name.trim() !== '') {
                         location.push(i.city.name);
                     }
                 }
                 if (i.state) {
                     delete i.state.geometry;
-                    if (i.state.name !== '') {
+                    if (i.state.name && i.state.name.trim() !== '') {
                         location.push(i.state.name);
                     }
                 }
@@ -222,7 +223,9 @@
                         'restrictionSubscriptions',
                         'defaultLaneWidthPerRoadType'
                     ]);
-                    location.push(i.country.name);
+                    if (i.country.name && i.country.name.trim() !== '') {
+                        location.push(i.country.name);
+                    }
                 }
                 i.location = location.join(', ');
 
