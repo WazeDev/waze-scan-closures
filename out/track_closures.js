@@ -165,7 +165,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
     let slackLocation;
     let regionCfg;
     const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
-    const searchQuery = encodeURIComponent(`${location} ${searchParams}`);
+    const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
     const region = Object.keys(cfg.regionBoundaries).find(r => {
         const f = cfg.regionBoundaries[r].locationKeywordsFilter;
         return f?.some((k) => location.toLowerCase().includes(k.toLowerCase()));
