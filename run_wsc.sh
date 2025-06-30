@@ -4,6 +4,10 @@
 git fetch origin
 git reset --hard origin/main
 
+# Install dependencies
+npm install
+npm run build
+
 # Kill any existing screen session named "waze-closure-tracking"
 screen -S waze-closure-tracking -X quit 2>/dev/null || true
 
