@@ -300,7 +300,9 @@ async function notifyDiscord({
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
-    embed.fields[4].value += ` | [Department of Transportation Map Link](${dotMap})`;
+    // append DoT link to the last field (Links)
+    const last = embed.fields[embed.fields.length - 1];
+    (last as { value: string }).value += ` | [Department of Transportation Map Link](${dotMap})`;
   }
 
   // 4) send to webhooks
