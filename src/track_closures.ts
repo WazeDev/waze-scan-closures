@@ -303,7 +303,7 @@ async function notifyDiscord({
         name: "Links",
         value:
           `[WME](${editorUrl}) | ` +
-          `[Livemap](${liveMapUrl}) | ` +
+          `[LiveMap](${liveMapUrl}) | ` +
           `[App](${appUrl})`,
       },
     ],
@@ -402,7 +402,7 @@ async function notifyDiscord({
           fields: [
             {
               type: "mrkdwn",
-              text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|Livemap> | <${appUrl}|App>` +
+              text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
                 `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
             }
           ]
