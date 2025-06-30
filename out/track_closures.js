@@ -241,7 +241,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
             {
                 name: "Links",
                 value: `[WME](${editorUrl}) | ` +
-                    `[Livemap](${liveMapUrl}) | ` +
+                    `[LiveMap](${liveMapUrl}) | ` +
                     `[App](${appUrl})`,
             },
         ],
@@ -337,7 +337,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
                     fields: [
                         {
                             type: "mrkdwn",
-                            text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|Livemap> | <${appUrl}|App>` +
+                            text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
                                 `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
                         }
                     ]
