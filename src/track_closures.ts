@@ -302,9 +302,9 @@ async function notifyDiscord({
       {
         name: "Links",
         value:
-          `[WME Link](${editorUrl}) | ` +
-          `[Livemap Link](${liveMapUrl}) | ` +
-          `[App Link](${appUrl})`,
+          `[WME](${editorUrl}) | ` +
+          `[Livemap](${liveMapUrl}) | ` +
+          `[App](${appUrl})`,
       },
     ],
     thumbnail: {
@@ -316,10 +316,10 @@ async function notifyDiscord({
     // use custom name if provided, else default
     const linkName =
       regionCfg.departmentOfTransporationName ??
-      "Department of Transportation Map Link";
+      "DOT";
     const lastField = embed.fields[embed.fields.length - 1];
     (lastField as { value: string }).value +=
-      ` | [${linkName} Link](${dotMap})`;
+      ` | [${linkName}](${dotMap})`;
   }
 
   // 4) send to webhooks
@@ -356,9 +356,9 @@ async function notifyDiscord({
       }
     } else if (hook.type === "slack") {
       logInfo(`Sending a closure notification to Slack (${region})…`);
-      // use custom DoT name or default
+      // use custom DOT name or default
       const dotLabel = regionCfg.departmentOfTransporationName
-        ?? "Department of Transportation Map Link";
+        ?? "DOT";
       const slackBlocks = [
         {
           type: "section",
@@ -402,8 +402,8 @@ async function notifyDiscord({
           fields: [
             {
               type: "mrkdwn",
-              text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>` +
-                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel} Link>` : ""}`
+              text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|Livemap> | <${appUrl}|App>` +
+                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
             }
           ]
         }

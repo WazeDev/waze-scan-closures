@@ -240,9 +240,9 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
             },
             {
                 name: "Links",
-                value: `[WME Link](${editorUrl}) | ` +
-                    `[Livemap Link](${liveMapUrl}) | ` +
-                    `[App Link](${appUrl})`,
+                value: `[WME](${editorUrl}) | ` +
+                    `[Livemap](${liveMapUrl}) | ` +
+                    `[App](${appUrl})`,
             },
         ],
         thumbnail: {
@@ -251,10 +251,10 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
     };
     if (regionCfg.departmentOfTransporationUrl) {
         const linkName = regionCfg.departmentOfTransporationName ??
-            "Department of Transportation Map Link";
+            "DOT";
         const lastField = embed.fields[embed.fields.length - 1];
         lastField.value +=
-            ` | [${linkName} Link](${dotMap})`;
+            ` | [${linkName}](${dotMap})`;
     }
     const webhooks = regionCfg.webhooks || [];
     for (const hook of webhooks) {
@@ -293,7 +293,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
         else if (hook.type === "slack") {
             logInfo(`Sending a closure notification to Slack (${region})…`);
             const dotLabel = regionCfg.departmentOfTransporationName
-                ?? "Department of Transportation Map Link";
+                ?? "DOT";
             const slackBlocks = [
                 {
                     type: "section",
@@ -337,8 +337,8 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
                     fields: [
                         {
                             type: "mrkdwn",
-                            text: `*Links*\n• <${editorUrl}|WME Link> | <${liveMapUrl}|Livemap Link> | <${appUrl}|App Link>` +
-                                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel} Link>` : ""}`
+                            text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|Livemap> | <${appUrl}|App>` +
+                                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
                         }
                     ]
                 }
