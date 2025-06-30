@@ -164,7 +164,7 @@ async function updateTracking(data) {
 async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, lon, location, roadType, roadTypeEnum, duration = "Unknown" }) {
     let slackLocation;
     let regionCfg;
-    const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state)`;
+    const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
     const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
     const region = Object.keys(cfg.regionBoundaries).find(r => {
         const f = cfg.regionBoundaries[r].locationKeywordsFilter;
