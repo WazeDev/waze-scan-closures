@@ -233,9 +233,9 @@ async function notifyDiscord({
   const tileX = lon2tile(lon, previewZoomLevel);
   const tileY = lat2tile(lat, previewZoomLevel);
   const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg) // pick a tile server based on country
-
-  userName = `[${userName}](https://www.waze.com/user/editor/${userName})`;
+  
   let slackUsername = `<https://www.waze.com/user/editor/${userName}|${userName}>`;
+  userName = `[${userName}](https://www.waze.com/user/editor/${userName})`;
   const editorUrl =
     `https://www.waze.com/en-US/editor?env=${regionCfg.env}` +
     `&lat=${lat.toFixed(6)}` +
