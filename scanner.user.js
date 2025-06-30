@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.15
+// @version      0.0.16
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -73,11 +73,10 @@
             console.error("Waze Scan Closures: URL not set!");
             return;
         }
+        let data = {userName: wazeEditorName, env: sdk.Settings.getRegionCode() }
         let details = {
             method: "POST",
-            data: JSON.stringify({
-                userName: wazeEditorName
-            }),
+            data: JSON.stringify(data),
             url: endpoints["TRACKED_CLOSURES"],
             headers: {
                 "Content-Type": "application/json"
