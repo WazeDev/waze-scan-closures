@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.17
+// @version      0.0.18
 // @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -193,9 +193,11 @@
                     i.city = sdk.DataModel.Cities.getById({
                         cityId: i.primaryStreet.cityId
                     });
-                    location.push(
+                    if (i.primaryStreet.name !== '' || i.primaryStreet.englishName !== '') {
+                        location.push(
                         i.primaryStreet.englishName || i.primaryStreet.name
                     );
+                    }
                 }
                 if (i.city) {
                     i.state = sdk.DataModel.States.getById({
@@ -204,11 +206,15 @@
                     i.country = sdk.DataModel.Countries.getById({
                         countryId: i.city.countryId
                     });
-                    location.push(i.city.name);
+                    if (i.city.name !== '') {
+                        location.push(i.city.name);
+                    }
                 }
                 if (i.state) {
                     delete i.state.geometry;
-                    location.push(i.state.name);
+                    if (i.state.name !== '') {
+                        location.push(i.state.name);
+                    }
                 }
                 if (i.country) {
                     removeObjectProperties(i.country, [
