@@ -1,6 +1,6 @@
 # waze-scan-closures
 
-Scans for Waze map closures and sends Discord notifications when new closures are reported.
+Passively scans for user-generated/reported road closures in WME and sends Discord notifications when new closures are reported.
 
 ## Regions Configured
 * Plains (IA, KS, MN, MO, NE, ND, SD)
