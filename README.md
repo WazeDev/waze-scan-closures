@@ -11,7 +11,6 @@ Scans for Waze map closures and sends Discord notifications when new closures ar
 * Cyprus
 * Qatar
 * United Arab Emirates
-* Colombia
 * Nepal
 * Ecuador
 

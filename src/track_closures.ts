@@ -76,7 +76,7 @@ const roadTypeColors = {
   10: 0x34495e, // Non-Routable Pedestrian Path
   15: 0x16a085, // Ferry
   16: 0x27ae60, // Stairway
-  17: 0xc0392b, // Private Road
+  17: 0xA8A45F, // Private Road
   18: 0x8e44ad, // Railroad
   19: 0x2980b9, // Runway
   20: 0x979797, // Parking Lot Road
