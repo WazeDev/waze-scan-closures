@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.21
-// @description  Passively scan for road closures and get segment/primaryStreet/city/country details.
+// @version      0.0.22
+// @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
 // @match        https://www.waze.com/*editor*
@@ -192,50 +192,29 @@
                     i.lat = i.segment.geometry.coordinates
                         .reduce((s, c) => s + c[1], 0) /
                         i.segment.geometry.coordinates.length;
-                    i.primaryStreet = sdk.DataModel.Streets.getById({
-                        streetId: i.segment.primaryStreetId
-                    });
                 }
 
-                // build human-readable location
+                // Get address using the SDK method
+                const address = sdk.Segments.getAddress({segmentId: i.segmentId});
+                
+                // build human-readable location using address components
                 const location = [];
-                if (i.primaryStreet) {
-                    i.city = sdk.DataModel.Cities.getById({
-                        cityId: i.primaryStreet.cityId
-                    });
-                    if (i.primaryStreet.name !== '' || i.primaryStreet.englishName !== '') {
-                        const streetName = i.primaryStreet.englishName || i.primaryStreet.name;
-                        if (streetName && streetName.trim() !== '') {
-                            location.push(streetName);
-                        }
+                
+                if (address && !address.isEmpty) {
+                    if (address.street && address.street.trim() !== '') {
+                        location.push(address.street);
+                    }
+                    if (address.city && address.city.trim() !== '') {
+                        location.push(address.city);
+                    }
+                    if (address.state && address.state.trim() !== '') {
+                        location.push(address.state);
+                    }
+                    if (address.country && address.country.trim() !== '') {
+                        location.push(address.country);
                     }
                 }
-                if (i.city) {
-                    i.state = sdk.DataModel.States.getById({
-                        stateId: i.city.stateId
-                    });
-                    i.country = sdk.DataModel.Countries.getById({
-                        countryId: i.city.countryId
-                    });
-                    if (i.city.name && i.city.name.trim() !== '') {
-                        location.push(i.city.name);
-                    }
-                }
-                if (i.state) {
-                    delete i.state.geometry;
-                    if (i.state.name && i.state.name.trim() !== '') {
-                        location.push(i.state.name);
-                    }
-                }
-                if (i.country) {
-                    removeObjectProperties(i.country, [
-                        'restrictionSubscriptions',
-                        'defaultLaneWidthPerRoadType'
-                    ]);
-                    if (i.country.name && i.country.name.trim() !== '') {
-                        location.push(i.country.name);
-                    }
-                }
+                
                 i.location = location.join(', ');
 
                 // metadata
@@ -252,10 +231,6 @@
 
                 // strip out unneeded props before upload
                 removeObjectProperties(i, [
-                    'city',
-                    'state',
-                    'country',
-                    'primaryStreet',
                     'isPermanent',
                     'description',
                     'endDate',
