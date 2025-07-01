@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.24
+// @version      0.0.25
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -28,6 +28,8 @@
         "TRACKED_CLOSURES": `${url}/trackedClosures`,
         "UPLOAD_CLOSURES": `${url}/uploadClosures`
     }
+    // Status message element reference
+    let statusMsgEl = null;
 
     async function init() {
         sdk = unsafeWindow.getWmeSdk({
@@ -57,6 +59,7 @@
                     <label for="WSCApiUrl">API URL:</label>
                     <input type="text" id="WSCApiUrl" value="${url}" style="width: 100%;" />
                 </div>
+                <div id="WSCStatusMsg" style="margin-top:8px;color:#007700;font-weight:bold;"></div>
             `;
             res.tabPane.querySelector("#WSCApiUrl").addEventListener("input", (e) => {
                 url = e.target.value;
@@ -64,13 +67,23 @@
                 endpoints["TRACKED_CLOSURES"] = `${url}/trackedClosures`;
                 endpoints["UPLOAD_CLOSURES"] = `${url}/uploadClosures`;
             });
+            statusMsgEl = res.tabPane.querySelector("#WSCStatusMsg");
         });
         console.log(`Waze Scan Closures: Initialized!`);
+    }
+    
+    // Helper to set status message
+    function setStatusMsg(msg, color = '#007700') {
+        if (statusMsgEl) {
+            statusMsgEl.textContent = msg;
+            statusMsgEl.style.color = color;
+        }
     }
 
     function getTrackedClosures() {
         if (url === "" || wazeEditorName === undefined || wazeEditorName === null) {
             console.error("Waze Scan Closures: URL not set!");
+            setStatusMsg("Upload failed: URL not set!", '#bb0000');
             return;
         }
         let data = {
@@ -88,6 +101,9 @@
                 let trkRes = JSON.parse(response.responseText);
                 console.log(`Waze Scan Closures: Retrieved ${trkRes.length} tracked closures!`);
                 trackedClosures = trkRes;
+            },
+            onerror: function() {
+                setStatusMsg("Failed to retrieve tracked closures!", '#bb0000');
             }
         };
         console.log(`Waze Scan Closures: Retriving tracked closures...`);
@@ -151,6 +167,7 @@
                 `Waze Scan Closures: Found ${userReportedClosures.length} user reported ` +
                 'closures!'
             );
+            setStatusMsg("Found ${userReportedClosures.length} user reported closures!", '#0055bb');
 
             // helper: convert ms → "Xh Ym"
             const formatDuration = ms => {
@@ -170,7 +187,7 @@
                         segmentId: closure.segmentId
                     });
                 }
-                
+
                 if (!closure.segment) {
                     console.log(`Waze Scan Closures: Skipping closure ${closure.id} - no segment found`);
                     return false;
@@ -196,10 +213,10 @@
 
                 // Get address using the SDK method
                 const address = sdk.DataModel.Segments.getAddress({segmentId: i.segmentId});
-                
+
                 // build human-readable location using address components
                 const location = [];
-                
+
                 if (address && !address.isEmpty) {
                     if (address.street && address.street.name.trim() !== '') {
                         location.push(address.street.name);
@@ -214,7 +231,7 @@
                         location.push(address.country.name);
                     }
                 }
-                
+
                 i.location = location.join(', ');
 
                 // metadata
@@ -251,12 +268,14 @@
             sendClosures(uploadData);
         } else {
             console.log('Waze Scan Closures: No new closures found...');
+            setStatusMsg('No new closures found...', '#e6b800');
         }
     }
 
     function sendClosures(uploadData) {
         if (url === "" || wazeEditorName === undefined || wazeEditorName === null) {
             console.error("Waze Scan Closures: URL not set!");
+            setStatusMsg("Upload failed: URL not set!", '#bb0000');
             return;
         }
         // use GM_xmlhttpRequest(details)
@@ -266,8 +285,16 @@
             data: JSON.stringify(uploadData),
             headers: {
                 "Content-type": "application/json; charset=UTF-8"
+            },
+            onload: function(response) {
+                setStatusMsg("Closures uploaded successfully!", '#007700');
+                getTrackedClosures();
+            },
+            onerror: function() {
+                setStatusMsg("Upload failed: Network error", '#bb0000');
             }
         };
+        setStatusMsg("Uploading closures...", '#0055bb');
         GM_xmlhttpRequest(details);
         getTrackedClosures();
     }
