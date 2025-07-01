@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.23
+// @version      0.0.24
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -201,17 +201,17 @@
                 const location = [];
                 
                 if (address && !address.isEmpty) {
-                    if (address.street && address.street.trim() !== '') {
-                        location.push(address.street);
+                    if (address.street && address.street.name.trim() !== '') {
+                        location.push(address.street.name);
                     }
-                    if (address.city && address.city.trim() !== '') {
-                        location.push(address.city);
+                    if (address.city && address.city.name.trim() !== '') {
+                        location.push(address.city.name);
                     }
-                    if (address.state && address.state.trim() !== '') {
-                        location.push(address.state);
+                    if (address.state && address.state.name.trim() !== '') {
+                        location.push(address.state.name);
                     }
-                    if (address.country && address.country.trim() !== '') {
-                        location.push(address.country);
+                    if (address.country && address.country.name.trim() !== '') {
+                        location.push(address.country.name);
                     }
                 }
                 
