@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.22
+// @version      0.0.23
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -195,7 +195,7 @@
                 }
 
                 // Get address using the SDK method
-                const address = sdk.Segments.getAddress({segmentId: i.segmentId});
+                const address = sdk.DataModel.Segments.getAddress({segmentId: i.segmentId});
                 
                 // build human-readable location using address components
                 const location = [];
