@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.25
+// @version      0.0.26
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -16,7 +16,7 @@
 // @connect      wsc.gc-p.zip
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
     unsafeWindow.SDK_INITIALIZED.then(init);
     let sdk;
@@ -30,6 +30,13 @@
     }
     // Status message element reference
     let statusMsgEl = null;
+
+    function titleCase(s) {
+        return s.toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
 
     async function init() {
         sdk = unsafeWindow.getWmeSdk({
@@ -71,7 +78,7 @@
         });
         console.log(`Waze Scan Closures: Initialized!`);
     }
-    
+
     // Helper to set status message
     function setStatusMsg(msg, color = '#007700') {
         if (statusMsgEl) {
@@ -97,12 +104,12 @@
             headers: {
                 "Content-Type": "application/json"
             },
-            onload: function(response) {
+            onload: function (response) {
                 let trkRes = JSON.parse(response.responseText);
                 console.log(`Waze Scan Closures: Retrieved ${trkRes.length} tracked closures!`);
                 trackedClosures = trkRes;
             },
-            onerror: function() {
+            onerror: function () {
                 setStatusMsg("Failed to retrieve tracked closures!", '#bb0000');
             }
         };
@@ -212,7 +219,7 @@
                 }
 
                 // Get address using the SDK method
-                const address = sdk.DataModel.Segments.getAddress({segmentId: i.segmentId});
+                const address = sdk.DataModel.Segments.getAddress({ segmentId: i.segmentId });
 
                 // build human-readable location using address components
                 const location = [];
@@ -238,6 +245,7 @@
                 i.createdBy = i.modificationData.createdBy;
                 i.createdOn = i.modificationData.createdOn;
                 i.direction = i.isForward ? 'A➜B' : 'B➜A';
+                i.status = titleCase(i.status);
 
                 // ← NEW: compute duration
                 const durationMs =
@@ -255,7 +263,6 @@
                     'startDate',
                     'isForward',
                     'segment',
-                    'status',
                     'trafficEventId'
                 ]);
             });
@@ -286,11 +293,11 @@
             headers: {
                 "Content-type": "application/json; charset=UTF-8"
             },
-            onload: function(response) {
+            onload: function (response) {
                 setStatusMsg("Closures uploaded successfully!", '#007700');
                 getTrackedClosures();
             },
-            onerror: function() {
+            onerror: function () {
                 setStatusMsg("Upload failed: Network error", '#bb0000');
             }
         };

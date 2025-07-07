@@ -149,7 +149,8 @@ async function updateTracking(data) {
                 location: c.location,
                 roadType: c.roadType,
                 roadTypeEnum: c.roadTypeEnum,
-                duration: c.duration || "Unknown"
+                duration: c.duration || "Unknown",
+                closureStatus: c.status || "Unknown"
             });
         }
     }
@@ -161,7 +162,7 @@ async function updateTracking(data) {
         }
     }
 }
-async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, lon, location, roadType, roadTypeEnum, duration = "Unknown" }) {
+async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, lon, location, roadType, roadTypeEnum, duration = "Unknown", closureStatus = "New" }) {
     let slackLocation;
     let regionCfg;
     const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
@@ -197,6 +198,9 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
     else {
         envPrefix = "";
     }
+    if (closureStatus.startsWith("Finished")) {
+        closureStatus = "Past";
+    }
     const tileX = lon2tile(lon, previewZoomLevel);
     const tileY = lat2tile(lat, previewZoomLevel);
     const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg);
@@ -220,7 +224,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
         }
     }
     const embed = {
-        author: { name: `New App Closure (${direction})` },
+        author: { name: `${closureStatus} App Closure (${direction})` },
         color: roadTypeColors[roadTypeEnum] || 0x3498db,
         fields: [
             {

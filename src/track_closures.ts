@@ -169,7 +169,8 @@ async function updateTracking(data: any) {
         location: c.location,
         roadType: c.roadType,
         roadTypeEnum: c.roadTypeEnum,
-        duration: c.duration || "Unknown" // use provided duration or default to "Unknown"
+        duration: c.duration || "Unknown", // use provided duration or default to "Unknown"
+        closureStatus: c.status || "Unknown" // use provided status or default to "Unknown"
       });
     }
   }
@@ -194,7 +195,8 @@ async function notifyDiscord({
   location,
   roadType,
   roadTypeEnum,
-  duration = "Unknown"
+  duration = "Unknown",
+  closureStatus = "New" // default to "New" if not provided
 }: {
   id: string;
   segID: string;
@@ -207,6 +209,7 @@ async function notifyDiscord({
   roadType: string;
   roadTypeEnum: keyof typeof roadTypes;
   duration?: string; // optional duration parameter
+  closureStatus?: string; // optional status parameter
 }) {
   let slackLocation;
   let regionCfg;
@@ -245,6 +248,10 @@ async function notifyDiscord({
     envPrefix = "";
   }
 
+  if (closureStatus.startsWith("Finished")) {
+    closureStatus = "Past";
+  }
+
   // Get preview tile URL
   const tileX = lon2tile(lon, previewZoomLevel);
   const tileY = lat2tile(lat, previewZoomLevel);
@@ -280,7 +287,7 @@ async function notifyDiscord({
     }
   }
   const embed = {
-    author: { name: `New App Closure (${direction})` },
+    author: { name: `${closureStatus} App Closure (${direction})` },
     // use the cached segment (sc) instead of undefined `segment`
     color: roadTypeColors[roadTypeEnum] || 0x3498db, // default to blue if no color found
     fields: [
