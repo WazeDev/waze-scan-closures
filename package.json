@@ -11,7 +11,8 @@
     "@typescript-eslint/parser": "^8.34.1",
     "eslint": "^9.29.0",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.34.1"
+    "typescript-eslint": "^8.34.1",
+    "wme-sdk-typings": "https://web-assets.waze.com/wme_sdk_docs/beta/latest/wme-sdk-typings.tgz"
   },
   "dependencies": {
     "node-fetch": "^3.3.2"

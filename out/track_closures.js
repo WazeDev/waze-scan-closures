@@ -134,8 +134,32 @@ async function updateTracking(data) {
     const newClosures = [];
     const arr = data.closures || [];
     const userName = data.userName || "Unknown User";
+    const now = Date.now();
     for (const c of arr) {
         const country = c.location.split(",").pop().trim();
+        const region = Object.keys(cfg.regionBoundaries).find(r => {
+            const f = cfg.regionBoundaries[r].locationKeywordsFilter;
+            return f?.some((k) => c.location.toLowerCase().includes(k.toLowerCase()));
+        });
+        if (!region) {
+            continue;
+        }
+        const regionCfg = cfg.regionBoundaries[region];
+        const maxClosureAgeDays = regionCfg.maxClosureAgeDays ?? 3;
+        if (maxClosureAgeDays === 0) {
+            const startTime = new Date(c.createdOn || c.timestamp).getTime();
+            const endTime = c.endDate ? new Date(c.endDate).getTime() : now + (24 * 60 * 60 * 1000);
+            if (now < startTime || now > endTime) {
+                continue;
+            }
+        }
+        else if (maxClosureAgeDays > 0) {
+            const closureTime = new Date(c.createdOn || c.timestamp).getTime();
+            const maxAge = maxClosureAgeDays * 24 * 60 * 60 * 1000;
+            if (now - closureTime > maxAge) {
+                continue;
+            }
+        }
         if (!tracked[c.id]) {
             tracked[c.id] = { firstSeen: new Date().toISOString(), country };
             newClosures.push({

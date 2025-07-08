@@ -154,8 +154,46 @@ async function updateTracking(data: any) {
   const newClosures: any[] = [];
   const arr = data.closures || [];
   const userName = data.userName || "Unknown User";
+  const now = Date.now();
+  
   for (const c of arr) {
     const country = c.location.split(",").pop()!.trim();
+    
+    // Find the region first to get its maxClosureAgeDays setting
+    const region = Object.keys(cfg.regionBoundaries).find(r => {
+      const f = cfg.regionBoundaries[r].locationKeywordsFilter;
+      return f?.some((k: string) => c.location.toLowerCase().includes(k.toLowerCase()));
+    });
+    
+    if (!region) {
+      // Skip closures that don't match any configured region
+      continue;
+    }
+    
+    const regionCfg = cfg.regionBoundaries[region];
+    // Get max age configuration per region (default to 3 days if not specified)
+    const maxClosureAgeDays = regionCfg.maxClosureAgeDays ?? 3;
+    
+    // Check closure age based on region configuration
+    if (maxClosureAgeDays === 0) {
+      // Only report active closures (startDate <= now <= endDate)
+      const startTime = new Date(c.createdOn || c.timestamp).getTime();
+      const endTime = c.endDate ? new Date(c.endDate).getTime() : now + (24 * 60 * 60 * 1000); // Default to 24h if no end date
+      
+      if (now < startTime || now > endTime) {
+        continue; // Skip inactive closures
+      }
+    } else if (maxClosureAgeDays > 0) {
+      // Check if closure is within the specified age limit
+      const closureTime = new Date(c.createdOn || c.timestamp).getTime();
+      const maxAge = maxClosureAgeDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+      
+      if (now - closureTime > maxAge) {
+        continue; // Skip closures older than the limit
+      }
+    }
+    // If maxClosureAgeDays is negative, report all closures (no age limit)
+    
     if (!tracked[c.id]) {
       tracked[c.id] = { firstSeen: new Date().toISOString(), country };
       newClosures.push({
@@ -545,6 +583,7 @@ const server = http.createServer((req, res) => {
             return region?.env === envFilter;
           })
           .map(([id]) => id);
+        
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(ids, null, 2));

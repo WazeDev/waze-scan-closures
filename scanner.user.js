@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.26
+// @version      0.0.27
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -105,9 +105,16 @@
                 "Content-Type": "application/json"
             },
             onload: function (response) {
-                let trkRes = JSON.parse(response.responseText);
-                console.log(`Waze Scan Closures: Retrieved ${trkRes.length} tracked closures!`);
-                trackedClosures = trkRes;
+                let responseData = JSON.parse(response.responseText);
+                
+                // Handle both old format (array) and new format (object)
+                if (Array.isArray(responseData)) {
+                    trackedClosures = responseData;
+                } else {
+                    trackedClosures = responseData.trackedClosures || [];
+                }
+                
+                console.log(`Waze Scan Closures: Retrieved ${trackedClosures.length} tracked closures!`);
             },
             onerror: function () {
                 setStatusMsg("Failed to retrieve tracked closures!", '#bb0000');
@@ -131,13 +138,12 @@
 
     function filterUserClosures(closures) {
         return closures.filter(c => {
-            // must have no description, valid dates, not already tracked, and no older than 3 days
+            // must have no description, valid dates, not already tracked
             if (
                 c.description ||
                 !c.startDate ||
                 !c.endDate ||
-                trackedClosures.includes(c.id) ||
-                new Date(c.startDate) < Date.now() - 3 * 24 * 60 * 60 * 1000
+                trackedClosures.includes(c.id)
             ) {
                 return false;
             }
