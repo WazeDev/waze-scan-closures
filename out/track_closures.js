@@ -150,7 +150,7 @@ async function updateTracking(data) {
                 roadType: c.roadType,
                 roadTypeEnum: c.roadTypeEnum,
                 duration: c.duration || "Unknown",
-                closureStatus: c.status || "Unknown"
+                closureStatus: c.status || "New"
             });
         }
     }

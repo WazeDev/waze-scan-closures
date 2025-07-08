@@ -170,7 +170,7 @@ async function updateTracking(data: any) {
         roadType: c.roadType,
         roadTypeEnum: c.roadTypeEnum,
         duration: c.duration || "Unknown", // use provided duration or default to "Unknown"
-        closureStatus: c.status || "Unknown" // use provided status or default to "Unknown"
+        closureStatus: c.status || "New" // use provided status or default to "Unknown"
       });
     }
   }
