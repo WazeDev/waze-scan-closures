@@ -4,7 +4,7 @@ Passively scans for user-generated/reported road closures in WME and sends Disco
 
 ## Regions Configured
 * Plains (IA, KS, MN, MO, NE, ND, SD)
-* Great Lakes (IN, OH, MI)
+* Great Lakes (IN, OH, MI, IL, WI)
 * Mid Atlantic (MD, VA, DC, WV)
 * Dominican Republic
 * Ireland
