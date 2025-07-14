@@ -203,20 +203,20 @@ async function updateTracking(data) {
         }
         for (const closure of ungroupedClosures) {
             await delay(1000);
-            await notifyDiscord(closure);
+            await notifyDiscord({ ...closure, scannerUserName: userName });
         }
         for (const [groupKey, closures] of groupedClosures) {
             await delay(1000);
             if (closures.length === 1) {
-                await notifyDiscord(closures[0]);
+                await notifyDiscord({ ...closures[0], scannerUserName: userName });
             }
             else {
-                await notifyDiscordGrouped(closures);
+                await notifyDiscordGrouped(closures, userName);
             }
         }
     }
 }
-async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, lon, location, roadType, roadTypeEnum, duration = "Unknown", closureStatus = "New" }) {
+async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, lon, location, roadType, roadTypeEnum, duration = "Unknown", closureStatus = "New", scannerUserName = "Unknown Scanner" }) {
     let slackLocation;
     let regionCfg;
     const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
@@ -306,6 +306,11 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
         thumbnail: {
             url: tileUrl,
         },
+        ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
+            footer: {
+                text: `Scanned by ${scannerUserName}`
+            }
+        } : {}),
     };
     if (regionCfg.departmentOfTransporationUrl) {
         const linkName = regionCfg.departmentOfTransporationName ??
@@ -401,6 +406,17 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
                     ]
                 }
             ];
+            if (scannerUserName && scannerUserName !== "Unknown Scanner") {
+                slackBlocks.push({
+                    type: "context",
+                    elements: [
+                        {
+                            type: "mrkdwn",
+                            text: `Scanned by ${scannerUserName}`
+                        }
+                    ]
+                });
+            }
             const slackRes = await fetch(hook.url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -420,7 +436,7 @@ async function notifyDiscord({ id, segID, userName, timestamp, direction, lat, l
     }
     return;
 }
-async function notifyDiscordGrouped(closures) {
+async function notifyDiscordGrouped(closures, scannerUserName = "Unknown Scanner") {
     if (closures.length === 0)
         return;
     const firstClosure = closures[0];
@@ -521,6 +537,11 @@ async function notifyDiscordGrouped(closures) {
         thumbnail: {
             url: tileUrl,
         },
+        ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
+            footer: {
+                text: `Scanned by ${scannerUserName}`
+            }
+        } : {}),
     };
     if (regionCfg.departmentOfTransporationUrl) {
         const linkName = regionCfg.departmentOfTransporationName ??
@@ -613,6 +634,17 @@ async function notifyDiscordGrouped(closures) {
                     ]
                 }
             ];
+            if (scannerUserName && scannerUserName !== "Unknown Scanner") {
+                slackBlocks.push({
+                    type: "context",
+                    elements: [
+                        {
+                            type: "mrkdwn",
+                            text: `Scanned by ${scannerUserName}`
+                        }
+                    ]
+                });
+            }
             const slackRes = await fetch(hook.url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

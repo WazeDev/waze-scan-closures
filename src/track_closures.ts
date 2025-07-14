@@ -245,7 +245,7 @@ async function updateTracking(data: any) {
     // Send notifications for ungrouped closures (regions that have grouping disabled)
     for (const closure of ungroupedClosures) {
       await delay(1000); // delay to avoid rate limiting
-      await notifyDiscord(closure);
+      await notifyDiscord({ ...closure, scannerUserName: userName });
     }
     
     // Send notifications for each group
@@ -253,10 +253,10 @@ async function updateTracking(data: any) {
       await delay(1000); // delay to avoid rate limiting
       if (closures.length === 1) {
         // Single closure - use existing notification
-        await notifyDiscord(closures[0]);
+        await notifyDiscord({ ...closures[0], scannerUserName: userName });
       } else {
         // Multiple closures on same segment - use grouped notification
-        await notifyDiscordGrouped(closures);
+        await notifyDiscordGrouped(closures, userName);
       }
     }
   }
@@ -275,7 +275,8 @@ async function notifyDiscord({
   roadType,
   roadTypeEnum,
   duration = "Unknown",
-  closureStatus = "New" // default to "New" if not provided
+  closureStatus = "New", // default to "New" if not provided
+  scannerUserName = "Unknown Scanner" // default scanner name
 }: {
   id: string;
   segID: string;
@@ -289,6 +290,7 @@ async function notifyDiscord({
   roadTypeEnum: keyof typeof roadTypes;
   duration?: string; // optional duration parameter
   closureStatus?: string; // optional status parameter
+  scannerUserName?: string; // optional scanner username parameter
 }) {
   let slackLocation;
   let regionCfg;
@@ -396,6 +398,11 @@ async function notifyDiscord({
     thumbnail: {
       url: tileUrl,
     },
+    ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
+      footer: {
+        text: `Scanned by ${scannerUserName}`
+      }
+    } : {}),
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
@@ -494,6 +501,19 @@ async function notifyDiscord({
           ]
         }
       ];
+
+      // Add scanner footer if we have a valid scanner username
+      if (scannerUserName && scannerUserName !== "Unknown Scanner") {
+        slackBlocks.push({
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: `Scanned by ${scannerUserName}`
+            }
+          ]
+        } as any);
+      }
       const slackRes = await fetch(hook.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -513,7 +533,7 @@ async function notifyDiscord({
 }
 
 // helper to notify Discord with grouped closures on the same segment
-async function notifyDiscordGrouped(closures: any[]) {
+async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "Unknown Scanner") {
   if (closures.length === 0) return;
   
   // Use the first closure as the base for common information
@@ -645,6 +665,11 @@ async function notifyDiscordGrouped(closures: any[]) {
     thumbnail: {
       url: tileUrl,
     },
+    ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
+      footer: {
+        text: `Scanned by ${scannerUserName}`
+      }
+    } : {}),
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
@@ -738,6 +763,20 @@ async function notifyDiscordGrouped(closures: any[]) {
           ]
         }
       ];
+
+      // Add scanner footer if we have a valid scanner username
+      if (scannerUserName && scannerUserName !== "Unknown Scanner") {
+        slackBlocks.push({
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: `Scanned by ${scannerUserName}`
+            }
+          ]
+        } as any);
+      }
+
       const slackRes = await fetch(hook.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
