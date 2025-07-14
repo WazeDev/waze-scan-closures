@@ -18,5 +18,5 @@ Passively scans for user-generated/reported road closures in WME and sends Disco
 ## Contributors
 |Contributor|Helped with|
 |-----------|-------------|
-|[@dalverson](https://github.com/dalverson)|Grouping closures by segment|
+|[@dalverson](https://github.com/dalverson)|Idea for grouping closures by segment|
 |[@kid4rm90s](https://github.com/kid4rm90s)|Status messages on script tab|

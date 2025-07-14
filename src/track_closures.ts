@@ -609,7 +609,7 @@ async function notifyDiscordGrouped(closures: any[]) {
     const userName = `[${c.userName}](https://www.waze.com/user/editor/${c.userName})`;
     const duration = c.duration || "Unknown";
     const direction = c.direction;
-    return `${index + 1}. **${status}** (${direction}) by ${userName} - Duration: ${duration} - <t:${(c.timestamp / 1000).toFixed(0)}:R>`;
+    return `${index + 1}. **${status}** (${direction}) by ${userName} - Duration: ${duration} - <t:${(c.timestamp / 1000).toFixed(0)}:F>`;
   }).join('\n');
 
   const slackClosureDetails = closures.map((c, index) => {
@@ -617,7 +617,7 @@ async function notifyDiscordGrouped(closures: any[]) {
     const slackUsername = `<https://www.waze.com/user/editor/${c.userName}|${c.userName}>`;
     const duration = c.duration || "Unknown";
     const direction = c.direction;
-    return `${index + 1}. *${status}* (${direction}) by ${slackUsername} - Duration: ${duration} - <!date^${(c.timestamp / 1000).toFixed(0)}^{date_short} {time}|${new Date(c.timestamp).toLocaleString()}>`;
+    return `${index + 1}. *${status}* (${direction}) by ${slackUsername} - Duration: ${duration} - <!date^${(c.timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(c.timestamp).toLocaleString()}>`;
   }).join('\n');
 
   const embed = {
