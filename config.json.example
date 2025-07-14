@@ -4,6 +4,7 @@
       "locationKeywordsFilter": ["KEYWORDS_HERE"],
       "env": "",
       "maxClosureAgeDays": 3,
+      "groupClosuresBySegment": true,
       "departmentOfTransporationName": "",
       "departmentOfTransporationUrl": "DOT_URL_HERE_USE_{lat}_FOR_LATITUDE_USE_{lon}_FOR_LONGITUDE_OR_LEAVE_BLANK",
       "webhooks": [

@@ -214,9 +214,50 @@ async function updateTracking(data: any) {
   }
   if (newClosures.length) {
     logInfo(`👀 ${userName} found ${newClosures.length} new closures!`);
+    
+    // Group closures by segment ID and region to avoid spamming webhooks (if enabled per region)
+    const groupedClosures = new Map<string, any[]>();
+    const ungroupedClosures: any[] = [];
+    
     for (const closure of newClosures) {
+      const segID = closure.segID;
+      
+      // Find the region for this closure to check grouping setting
+      const region = Object.keys(cfg.regionBoundaries).find(r => {
+        const f = cfg.regionBoundaries[r].locationKeywordsFilter;
+        return f?.some((k: string) => closure.location.toLowerCase().includes(k.toLowerCase()));
+      });
+      
+      const regionCfg = region ? cfg.regionBoundaries[region] : null;
+      const shouldGroup = regionCfg?.groupClosuresBySegment ?? true; // Default to true if not specified
+      
+      if (shouldGroup) {
+        const groupKey = `${segID}-${region}`;
+        if (!groupedClosures.has(groupKey)) {
+          groupedClosures.set(groupKey, []);
+        }
+        groupedClosures.get(groupKey)!.push(closure);
+      } else {
+        ungroupedClosures.push(closure);
+      }
+    }
+    
+    // Send notifications for ungrouped closures (regions that have grouping disabled)
+    for (const closure of ungroupedClosures) {
       await delay(1000); // delay to avoid rate limiting
       await notifyDiscord(closure);
+    }
+    
+    // Send notifications for each group
+    for (const [groupKey, closures] of groupedClosures) {
+      await delay(1000); // delay to avoid rate limiting
+      if (closures.length === 1) {
+        // Single closure - use existing notification
+        await notifyDiscord(closures[0]);
+      } else {
+        // Multiple closures on same segment - use grouped notification
+        await notifyDiscordGrouped(closures);
+      }
     }
   }
 }
@@ -460,6 +501,250 @@ async function notifyDiscord({
       });
       if (slackRes.ok) {
         logInfo("Slack notification sent successfully.");
+      } else {
+        const text = await slackRes.text();
+        logError(`Slack webhook request failed (${slackRes.status}): ${text}`);
+      }
+    } else {
+      logWarning(`Unknown webhook type: ${hook.type}`);
+    }
+  }
+  return;
+}
+
+// helper to notify Discord with grouped closures on the same segment
+async function notifyDiscordGrouped(closures: any[]) {
+  if (closures.length === 0) return;
+  
+  // Use the first closure as the base for common information
+  const firstClosure = closures[0];
+  const {
+    segID,
+    lat,
+    lon,
+    location,
+    roadType,
+    roadTypeEnum
+  } = firstClosure;
+  
+  let regionCfg;
+  const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
+  const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
+  const region = Object.keys(cfg.regionBoundaries).find(r => {
+    const f = cfg.regionBoundaries[r].locationKeywordsFilter;
+    return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
+  });
+  
+  if (region) {
+    logInfo(`Assigning ${closures.length} grouped closures to region ${region}`);
+    regionCfg = cfg.regionBoundaries[region];
+  } else {
+    // Remove all closures from tracking if region not found
+    closures.forEach(c => delete tracked[c.id]);
+    logError(`Grouped closures are in a region that is not configured: ${location}`);
+    return;
+  }
+
+  // Update tracking for all closures
+  closures.forEach(c => {
+    if (tracked[c.id]) {
+      tracked[c.id].country = region;
+    }
+  });
+  fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+
+  const formattedLocation = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
+  const slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
+  
+  // Average coordinates to get a center point
+  const adjLon1 = +lon.toFixed(3) + 0.005;
+  const adjLat1 = +lat.toFixed(3) + 0.005;
+  const adjLon2 = +lon.toFixed(3) - 0.005;
+  const adjLat2 = +lat.toFixed(3) - 0.005;
+
+  let envPrefix: string;
+  if (regionCfg.env === 'row') {
+    envPrefix = "row-";
+  } else if (regionCfg.env === 'il') {
+    envPrefix = "il-";
+  } else {
+    envPrefix = "";
+  }
+
+  // Get preview tile URL
+  const tileX = lon2tile(lon, previewZoomLevel);
+  const tileY = lat2tile(lat, previewZoomLevel);
+  const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg);
+  
+  const editorUrl =
+    `https://www.waze.com/en-US/editor?env=${regionCfg.env}` +
+    `&lat=${lat.toFixed(6)}` +
+    `&lon=${lon.toFixed(6)}` +
+    `&zoomLevel=17&segments=${segID}`;
+  const liveMapUrl =
+    `https://www.waze.com/live-map/directions?to=ll.` +
+    `${lat.toFixed(6)}%2C${lon.toFixed(6)}`;
+  const appUrl = `https://www.waze.com/ul?ll=${lat.toFixed(
+    6
+  )},${lon.toFixed(6)}`;
+  
+  let dotMap;
+  if (regionCfg.departmentOfTransporationUrl) {
+    if (
+      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
+      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
+    ) {
+      dotMap = regionCfg.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
+    } else {
+      dotMap = regionCfg.departmentOfTransporationUrl.replace(
+        "{lat}",
+        lat.toFixed(6)
+      ).replace("{lon}", lon.toFixed(6));
+    }
+  }
+
+  // Create a summary of all closures
+  const closureDetails = closures.map((c, index) => {
+    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
+    const userName = `[${c.userName}](https://www.waze.com/user/editor/${c.userName})`;
+    const duration = c.duration || "Unknown";
+    const direction = c.direction;
+    return `${index + 1}. **${status}** (${direction}) by ${userName} - Duration: ${duration} - <t:${(c.timestamp / 1000).toFixed(0)}:R>`;
+  }).join('\n');
+
+  const slackClosureDetails = closures.map((c, index) => {
+    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
+    const slackUsername = `<https://www.waze.com/user/editor/${c.userName}|${c.userName}>`;
+    const duration = c.duration || "Unknown";
+    const direction = c.direction;
+    return `${index + 1}. *${status}* (${direction}) by ${slackUsername} - Duration: ${duration} - <!date^${(c.timestamp / 1000).toFixed(0)}^{date_short} {time}|${new Date(c.timestamp).toLocaleString()}>`;
+  }).join('\n');
+
+  const embed = {
+    author: { name: `${closures.length} App Closures on Same Segment` },
+    color: roadTypeColors[roadTypeEnum as keyof typeof roadTypeColors] || 0x3498db, // default to blue if no color found
+    fields: [
+      {
+        name: "Closures",
+        value: closureDetails,
+      },
+      { name: "Segment Type", value: roadType, inline: true },
+      {
+        name: "Location",
+        value: formattedLocation,
+        inline: true,
+      },
+      {
+        name: "Links",
+        value:
+          `[WME](${editorUrl}) | ` +
+          `[LiveMap](${liveMapUrl}) | ` +
+          `[App](${appUrl})`,
+      },
+    ],
+    thumbnail: {
+      url: tileUrl,
+    },
+  };
+
+  if (regionCfg.departmentOfTransporationUrl) {
+    const linkName =
+      regionCfg.departmentOfTransporationName ??
+      "DOT";
+    const lastField = embed.fields[embed.fields.length - 1];
+    (lastField as { value: string }).value +=
+      ` | [${linkName}](${dotMap})`;
+  }
+
+  // Send to webhooks
+  const webhooks = regionCfg.webhooks || [];
+  for (const hook of webhooks) {
+    if (hook.type === "discord") {
+      logInfo(`Sending grouped closure notification to Discord (${region}) for ${closures.length} closures…`);
+      const maxRetries = 3;
+      let attempt = 0;
+      let success = false;
+      while (attempt < maxRetries && !success) {
+        attempt++;
+        const res = await fetch(hook.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ embeds: [embed] }),
+        });
+        if (res.status === 204) {
+          logInfo("Discord grouped notification sent successfully.");
+          success = true;
+        } else if (res.status === 429) {
+          const retryData: any = await res.json().catch(() => null);
+          const retryAfter = (retryData && typeof retryData.retry_after === 'number') ? retryData.retry_after : 1;
+          logWarning(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
+          await delay(retryAfter * 1000);
+        } else {
+          const text = await res.text();
+          logError(`Discord webhook request failed (${res.status}): ${text}`);
+          break;
+        }
+      }
+      if (!success) {
+        logError(`Failed to send Discord grouped notification after ${maxRetries} attempts.`);
+      }
+    } else if (hook.type === "slack") {
+      logInfo(`Sending grouped closure notification to Slack (${region}) for ${closures.length} closures…`);
+      const dotLabel = regionCfg.departmentOfTransporationName ?? "DOT";
+      const slackBlocks = [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*${closures.length} App Closures on Same Segment*`
+          },
+          accessory: {
+            type: "image",
+            image_url: tileUrl,
+            alt_text: "Tile preview"
+          }
+        },
+        {
+          type: "section",
+          block_id: "closureDetails",
+          text: {
+            type: "mrkdwn",
+            text: `*Closures*\n${slackClosureDetails}`
+          }
+        },
+        {
+          type: "section",
+          block_id: "segmentLocation",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Segment Type*\n${roadType}`
+            },
+            {
+              type: "mrkdwn",
+              text: `*Location*\n${slackLocation}`
+            }
+          ]
+        },
+        {
+          type: "section",
+          block_id: "links",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
+                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
+            }
+          ]
+        }
+      ];
+      const slackRes = await fetch(hook.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocks: slackBlocks }),
+      });
+      if (slackRes.ok) {
+        logInfo("Slack grouped notification sent successfully.");
       } else {
         const text = await slackRes.text();
         logError(`Slack webhook request failed (${slackRes.status}): ${text}`);
