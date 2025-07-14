@@ -16,5 +16,7 @@ Passively scans for user-generated/reported road closures in WME and sends Disco
 * Ecuador
 
 ## Contributors
-[@dalverson](https://github.com/dalverson) - Grouping closures by segment
-[@kid4rm90s](https://github.com/kid4rm90s) - Status messages on script tab
+|Contributor|Helped with|
+|-----------|-------------|
+|[@dalverson](https://github.com/dalverson)|Grouping closures by segment|
+|[@kid4rm90s](https://github.com/kid4rm90s)|Status messages on script tab|
