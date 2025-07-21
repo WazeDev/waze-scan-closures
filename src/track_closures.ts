@@ -26,7 +26,12 @@ function logWarning(msg: string) {
 
 // load config.json
 const configPath = path.resolve(__dirname, "..", "config.json");
-let cfg: { regionBoundaries: { [x: string]: any; }, loop?: boolean; whitelist?: string[] | Record<string, boolean>; }
+let cfg: { 
+  regionBoundaries: { [x: string]: any; }, 
+  loop?: boolean; 
+  whitelist?: string[] | Record<string, boolean>; 
+  cleanupTrackedClosuresAfterDays?: number;
+}
 try {
   cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
 } catch (err) {
@@ -44,6 +49,8 @@ fs.watchFile(configPath, { interval: 15000 }, () => {
   try {
     cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
     logInfo("🔄 config.json reloaded");
+    // Run cleanup when config is reloaded in case cleanup settings changed
+    cleanupOldTrackedClosures();
   } catch (err) {
     logError(`❌ Failed to reload config.json:) ${err instanceof Error ? err.message : err}`);
   }
@@ -148,6 +155,40 @@ let tracked: { [id: string]: { firstSeen: string; country: string } } = {};
 if (fs.existsSync(TRACK_FILE)) {
   tracked = JSON.parse(fs.readFileSync(TRACK_FILE, "utf8"));
 }
+
+// Function to clean up old tracked closures based on config
+function cleanupOldTrackedClosures() {
+  const cleanupAgeDays = cfg.cleanupTrackedClosuresAfterDays;
+  
+  // Skip cleanup if not configured or set to 0 (disabled)
+  if (!cleanupAgeDays || cleanupAgeDays <= 0) {
+    return;
+  }
+  
+  const now = Date.now();
+  const maxAge = cleanupAgeDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+  let removedCount = 0;
+  
+  for (const [id, info] of Object.entries(tracked)) {
+    const firstSeenTime = new Date(info.firstSeen).getTime();
+    
+    if (now - firstSeenTime > maxAge) {
+      delete tracked[id];
+      removedCount++;
+    }
+  }
+  
+  if (removedCount > 0) {
+    fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+    logInfo(`🧹 Cleaned up ${removedCount} old tracked closures (older than ${cleanupAgeDays} days)`);
+  }
+}
+
+// Run cleanup on startup
+cleanupOldTrackedClosures();
+
+// Schedule cleanup to run every 24 hours
+setInterval(cleanupOldTrackedClosures, 24 * 60 * 60 * 1000);
 
 // Modify signature to accept parsed JSON
 async function updateTracking(data: any) {

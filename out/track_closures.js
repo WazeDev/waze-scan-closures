@@ -35,6 +35,7 @@ fs.watchFile(configPath, { interval: 15000 }, () => {
     try {
         cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
         logInfo("🔄 config.json reloaded");
+        cleanupOldTrackedClosures();
     }
     catch (err) {
         logError(`❌ Failed to reload config.json:) ${err instanceof Error ? err.message : err}`);
@@ -130,6 +131,28 @@ let tracked = {};
 if (fs.existsSync(TRACK_FILE)) {
     tracked = JSON.parse(fs.readFileSync(TRACK_FILE, "utf8"));
 }
+function cleanupOldTrackedClosures() {
+    const cleanupAgeDays = cfg.cleanupTrackedClosuresAfterDays;
+    if (!cleanupAgeDays || cleanupAgeDays <= 0) {
+        return;
+    }
+    const now = Date.now();
+    const maxAge = cleanupAgeDays * 24 * 60 * 60 * 1000;
+    let removedCount = 0;
+    for (const [id, info] of Object.entries(tracked)) {
+        const firstSeenTime = new Date(info.firstSeen).getTime();
+        if (now - firstSeenTime > maxAge) {
+            delete tracked[id];
+            removedCount++;
+        }
+    }
+    if (removedCount > 0) {
+        fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+        logInfo(`🧹 Cleaned up ${removedCount} old tracked closures (older than ${cleanupAgeDays} days)`);
+    }
+}
+cleanupOldTrackedClosures();
+setInterval(cleanupOldTrackedClosures, 24 * 60 * 60 * 1000);
 async function updateTracking(data) {
     const newClosures = [];
     const arr = data.closures || [];
