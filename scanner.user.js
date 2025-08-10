@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.27
+// @version      0.0.28
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -160,6 +160,85 @@
         });
     }
 
+    // Function to find adjacent closures by traversing connected segments
+    function findAdjacentClosures(closureSegmentId, allClosures, visited = new Set()) {
+        // Avoid infinite loops
+        if (visited.has(closureSegmentId)) {
+            return [];
+        }
+        visited.add(closureSegmentId);
+
+        const adjacentClosures = [];
+        const segment = sdk.DataModel.Segments.getById({ segmentId: closureSegmentId });
+        
+        if (!segment) {
+            return adjacentClosures;
+        }
+
+        // Get nodes connected to this segment
+        const nodeIds = [segment.fromNodeId, segment.toNodeId].filter(id => id !== null);
+        
+        for (const nodeId of nodeIds) {
+            const node = sdk.DataModel.Nodes.getById({ nodeId: nodeId });
+            if (!node) continue;
+
+            // Get all segments connected to this node
+            const connectedSegmentIds = node.segmentIds || [];
+            
+            for (const connectedSegmentId of connectedSegmentIds) {
+                // Skip the original segment
+                if (connectedSegmentId === closureSegmentId) continue;
+                
+                // Check if this connected segment has a closure
+                const closureOnSegment = allClosures.find(closure => closure.segmentId === connectedSegmentId);
+                if (closureOnSegment) {
+                    adjacentClosures.push({
+                        closure: closureOnSegment,
+                        connectionNodeId: nodeId,
+                        segmentId: connectedSegmentId
+                    });
+                    
+                    // Recursively find closures adjacent to this one
+                    const furtherAdjacent = findAdjacentClosures(connectedSegmentId, allClosures, visited);
+                    adjacentClosures.push(...furtherAdjacent);
+                }
+            }
+        }
+
+        return adjacentClosures;
+    }
+
+    // Function to group closures by adjacency
+    function groupClosuresByAdjacency(closures) {
+        const groups = [];
+        const processed = new Set();
+
+        for (const closure of closures) {
+            if (processed.has(closure.id)) continue;
+
+            const group = [closure];
+            processed.add(closure.id);
+
+            // Find all adjacent closures for this closure
+            const adjacent = findAdjacentClosures(closure.segmentId, closures);
+            
+            for (const adj of adjacent) {
+                if (!processed.has(adj.closure.id)) {
+                    group.push(adj.closure);
+                    processed.add(adj.closure.id);
+                }
+            }
+
+            groups.push({
+                closures: group,
+                isGroup: group.length > 1,
+                groupId: group.map(c => c.id).sort().join('-')
+            });
+        }
+
+        return groups;
+    }
+
     function removeObjectProperties(obj, props) {
 
         for (var i = 0; i < props.length; i++) {
@@ -180,7 +259,11 @@
                 `Waze Scan Closures: Found ${userReportedClosures.length} user reported ` +
                 'closures!'
             );
-            setStatusMsg("Found ${userReportedClosures.length} user reported closures!", '#0055bb');
+            setStatusMsg(`Found ${userReportedClosures.length} user reported closures!`, '#0055bb');
+
+            // Group closures by adjacency
+            const closureGroups = groupClosuresByAdjacency(userReportedClosures);
+            console.log(`Waze Scan Closures: Grouped into ${closureGroups.length} closure groups`);
 
             // helper: convert ms → "Xh Ym"
             const formatDuration = ms => {
@@ -193,90 +276,107 @@
                 return str || '0m';
             };
 
-            // Filter out closures without valid segments first
-            const validClosures = userReportedClosures.filter(closure => {
-                if (closure.segmentId !== null) {
-                    closure.segment = sdk.DataModel.Segments.getById({
-                        segmentId: closure.segmentId
-                    });
-                }
+            // Process all closures and add adjacency information
+            const allProcessedClosures = [];
 
-                if (!closure.segment) {
-                    console.log(`Waze Scan Closures: Skipping closure ${closure.id} - no segment found`);
-                    return false;
-                }
-                return true;
-            });
-
-            validClosures.forEach(i => {
-                // track
-                trackedClosures.push(i.id);
-
-                if (i.segment) {
-                    i.roadType =
-                        I18n.t('segment.road_types')[i.segment.roadType];
-                    i.roadTypeEnum = i.segment.roadType;
-                    i.lon = i.segment.geometry.coordinates
-                        .reduce((s, c) => s + c[0], 0) /
-                        i.segment.geometry.coordinates.length;
-                    i.lat = i.segment.geometry.coordinates
-                        .reduce((s, c) => s + c[1], 0) /
-                        i.segment.geometry.coordinates.length;
-                }
-
-                // Get address using the SDK method
-                const address = sdk.DataModel.Segments.getAddress({ segmentId: i.segmentId });
-
-                // build human-readable location using address components
-                const location = [];
-
-                if (address && !address.isEmpty) {
-                    if (address.street && address.street.name.trim() !== '') {
-                        location.push(address.street.name);
+            for (const group of closureGroups) {
+                // Filter out closures without valid segments first
+                const validClosures = group.closures.filter(closure => {
+                    if (closure.segmentId !== null) {
+                        closure.segment = sdk.DataModel.Segments.getById({
+                            segmentId: closure.segmentId
+                        });
                     }
-                    if (address.city && address.city.name.trim() !== '') {
-                        location.push(address.city.name);
+
+                    if (!closure.segment) {
+                        console.log(`Waze Scan Closures: Skipping closure ${closure.id} - no segment found`);
+                        return false;
                     }
-                    if (address.state && address.state.name.trim() !== '') {
-                        location.push(address.state.name);
+                    return true;
+                });
+
+                validClosures.forEach(i => {
+                    // track
+                    trackedClosures.push(i.id);
+
+                    if (i.segment) {
+                        i.roadType =
+                            I18n.t('segment.road_types')[i.segment.roadType];
+                        i.roadTypeEnum = i.segment.roadType;
+                        i.lon = i.segment.geometry.coordinates
+                            .reduce((s, c) => s + c[0], 0) /
+                            i.segment.geometry.coordinates.length;
+                        i.lat = i.segment.geometry.coordinates
+                            .reduce((s, c) => s + c[1], 0) /
+                            i.segment.geometry.coordinates.length;
                     }
-                    if (address.country && address.country.name.trim() !== '') {
-                        location.push(address.country.name);
+
+                    // Get address using the SDK method
+                    const address = sdk.DataModel.Segments.getAddress({ segmentId: i.segmentId });
+
+                    // build human-readable location using address components
+                    const location = [];
+
+                    if (address && !address.isEmpty) {
+                        if (address.street && address.street.name.trim() !== '') {
+                            location.push(address.street.name);
+                        }
+                        if (address.city && address.city.name.trim() !== '') {
+                            location.push(address.city.name);
+                        }
+                        if (address.state && address.state.name.trim() !== '') {
+                            location.push(address.state.name);
+                        }
+                        if (address.country && address.country.name.trim() !== '') {
+                            location.push(address.country.name);
+                        }
                     }
-                }
 
-                i.location = location.join(', ');
+                    i.location = location.join(', ');
 
-                // metadata
-                i.createdBy = i.modificationData.createdBy;
-                i.createdOn = i.modificationData.createdOn;
-                i.direction = i.isForward ? 'A➜B' : 'B➜A';
-                i.status = titleCase(i.status);
+                    // metadata
+                    i.createdBy = i.modificationData.createdBy;
+                    i.createdOn = i.modificationData.createdOn;
+                    i.direction = i.isForward ? 'A➜B' : 'B➜A';
+                    i.status = titleCase(i.status);
 
-                // ← NEW: compute duration
-                const durationMs =
-                    new Date(i.endDate).getTime() -
-                    new Date(i.startDate).getTime();
-                i.durationMs = durationMs;
-                i.duration = formatDuration(durationMs);
+                    // ← NEW: compute duration
+                    const durationMs =
+                        new Date(i.endDate).getTime() -
+                        new Date(i.startDate).getTime();
+                    i.durationMs = durationMs;
+                    i.duration = formatDuration(durationMs);
 
-                // strip out unneeded props before upload
-                removeObjectProperties(i, [
-                    'isPermanent',
-                    'description',
-                    'endDate',
-                    'modificationData',
-                    'startDate',
-                    'isForward',
-                    'segment',
-                    'trafficEventId'
-                ]);
-            });
+                    // Add adjacency information
+                    i.isPartOfGroup = group.isGroup;
+                    i.groupId = group.groupId;
+                    i.groupSize = group.closures.length;
+                    if (group.isGroup) {
+                        i.adjacentClosureIds = group.closures
+                            .filter(c => c.id !== i.id)
+                            .map(c => c.id);
+                    }
+
+                    // strip out unneeded props before upload
+                    removeObjectProperties(i, [
+                        'isPermanent',
+                        'description',
+                        'endDate',
+                        'modificationData',
+                        'startDate',
+                        'isForward',
+                        'segment',
+                        'trafficEventId'
+                    ]);
+                });
+
+                allProcessedClosures.push(...validClosures);
+            }
 
             const uploadData = {
                 // bbox: sdk.Map.getMapExtent(),
                 userName: wazeEditorName,
-                closures: validClosures
+                closures: allProcessedClosures
             };
             sendClosures(uploadData);
         } else {

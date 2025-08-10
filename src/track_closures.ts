@@ -255,20 +255,24 @@ async function updateTracking(data: any) {
         roadType: c.roadType,
         roadTypeEnum: c.roadTypeEnum,
         duration: c.duration || "Unknown", // use provided duration or default to "Unknown"
-        closureStatus: c.status || "New" // use provided status or default to "Unknown"
+        closureStatus: c.status || "New", // use provided status or default to "Unknown"
+        // Adjacency metadata from scanner
+        isPartOfGroup: c.isPartOfGroup || false,
+        groupId: c.groupId || null,
+        groupSize: c.groupSize || 1,
+        adjacentClosureIds: c.adjacentClosureIds || []
       });
     }
   }
   if (newClosures.length) {
     logInfo(`👀 ${userName} found ${newClosures.length} new closures!`);
     
-    // Group closures by segment ID and region to avoid spamming webhooks (if enabled per region)
-    const groupedClosures = new Map<string, any[]>();
+    // Group closures by adjacency first (if available), then by segment ID and region
+    const adjacencyGroups = new Map<string, any[]>();
+    const segmentGroups = new Map<string, any[]>();
     const ungroupedClosures: any[] = [];
     
     for (const closure of newClosures) {
-      const segID = closure.segID;
-      
       // Find the region for this closure to check grouping setting
       const region = Object.keys(cfg.regionBoundaries).find(r => {
         const f = cfg.regionBoundaries[r].locationKeywordsFilter;
@@ -277,15 +281,27 @@ async function updateTracking(data: any) {
       
       const regionCfg = region ? cfg.regionBoundaries[region] : null;
       const shouldGroup = regionCfg?.groupClosuresBySegment ?? true; // Default to true if not specified
+      const useAdjacencyGrouping = regionCfg?.useAdjacencyGrouping ?? true; // Default to true for adjacency grouping
       
-      if (shouldGroup) {
-        const groupKey = `${segID}-${region}`;
-        if (!groupedClosures.has(groupKey)) {
-          groupedClosures.set(groupKey, []);
-        }
-        groupedClosures.get(groupKey)!.push(closure);
-      } else {
+      if (!shouldGroup) {
         ungroupedClosures.push(closure);
+        continue;
+      }
+      
+      // Priority 1: Use adjacency grouping if enabled and closure is part of a group
+      if (useAdjacencyGrouping && closure.isPartOfGroup && closure.groupId) {
+        const adjacencyKey = `adj-${closure.groupId}-${region}`;
+        if (!adjacencyGroups.has(adjacencyKey)) {
+          adjacencyGroups.set(adjacencyKey, []);
+        }
+        adjacencyGroups.get(adjacencyKey)!.push(closure);
+      } else {
+        // Priority 2: Fall back to segment-based grouping
+        const segmentKey = `seg-${closure.segID}-${region}`;
+        if (!segmentGroups.has(segmentKey)) {
+          segmentGroups.set(segmentKey, []);
+        }
+        segmentGroups.get(segmentKey)!.push(closure);
       }
     }
     
@@ -295,14 +311,26 @@ async function updateTracking(data: any) {
       await notifyDiscord({ ...closure, scannerUserName: userName });
     }
     
-    // Send notifications for each group
-    for (const [groupKey, closures] of groupedClosures) {
+    // Send notifications for adjacency groups (connected closures)
+    for (const [groupKey, closures] of adjacencyGroups) {
       await delay(1000); // delay to avoid rate limiting
       if (closures.length === 1) {
         // Single closure - use existing notification
         await notifyDiscord({ ...closures[0], scannerUserName: userName });
       } else {
-        // Multiple closures on same segment - use grouped notification
+        // Multiple adjacent closures - use adjacency-aware grouped notification
+        await notifyDiscordAdjacencyGroup(closures, userName);
+      }
+    }
+    
+    // Send notifications for segment groups (same segment, different times)
+    for (const [groupKey, closures] of segmentGroups) {
+      await delay(1000); // delay to avoid rate limiting
+      if (closures.length === 1) {
+        // Single closure - use existing notification
+        await notifyDiscord({ ...closures[0], scannerUserName: userName });
+      } else {
+        // Multiple closures on same segment - use existing grouped notification
         await notifyDiscordGrouped(closures, userName);
       }
     }
@@ -323,7 +351,11 @@ async function notifyDiscord({
   roadTypeEnum,
   duration = "Unknown",
   closureStatus = "New", // default to "New" if not provided
-  scannerUserName = "Unknown Scanner" // default scanner name
+  scannerUserName = "Unknown Scanner", // default scanner name
+  isPartOfGroup = false, // adjacency information
+  groupId = null,
+  groupSize = 1,
+  adjacentClosureIds = []
 }: {
   id: string;
   segID: string;
@@ -338,6 +370,10 @@ async function notifyDiscord({
   duration?: string; // optional duration parameter
   closureStatus?: string; // optional status parameter
   scannerUserName?: string; // optional scanner username parameter
+  isPartOfGroup?: boolean; // adjacency metadata
+  groupId?: string | null;
+  groupSize?: number;
+  adjacentClosureIds?: string[];
 }) {
   let slackLocation;
   let regionCfg;
@@ -415,9 +451,9 @@ async function notifyDiscord({
     }
   }
   const embed = {
-    author: { name: `${closureStatus} App Closure (${direction})` },
+    author: { name: `${closureStatus} App Closure (${direction})${isPartOfGroup ? ' (Connected)' : ''}` },
     // use the cached segment (sc) instead of undefined `segment`
-    color: roadTypeColors[roadTypeEnum] || 0x3498db, // default to blue if no color found
+    color: roadTypeColors[roadTypeEnum] || 0x3498db, // Keep road type colors
     fields: [
       {
         name: "User",
@@ -434,6 +470,13 @@ async function notifyDiscord({
         value: location,
         inline: true,
       },
+      ...(isPartOfGroup ? [{
+        name: "Adjacent Closures",
+        value: `Part of group with ${groupSize} total closures\n` +
+               `Group ID: \`${groupId}\`\n` +
+               `${adjacentClosureIds.length} directly connected closures`,
+        inline: false,
+      }] : []),
       {
         name: "Links",
         value:
@@ -536,6 +579,16 @@ async function notifyDiscord({
             }
           ]
         },
+        ...(isPartOfGroup ? [{
+          type: "section",
+          block_id: "adjacency",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Adjacent Closures*\nPart of group with ${groupSize} total closures\nGroup ID: \`${groupId}\`\n${adjacentClosureIds.length} directly connected closures`
+            }
+          ]
+        }] : []),
         {
           type: "section",
           block_id: "links",
@@ -831,6 +884,287 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
       });
       if (slackRes.ok) {
         logInfo("Slack grouped notification sent successfully.");
+      } else {
+        const text = await slackRes.text();
+        logError(`Slack webhook request failed (${slackRes.status}): ${text}`);
+      }
+    } else {
+      logWarning(`Unknown webhook type: ${hook.type}`);
+    }
+  }
+  return;
+}
+
+// helper to notify Discord with adjacency-grouped closures (connected via nodes)
+async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: string = "Unknown Scanner") {
+  if (closures.length === 0) return;
+  
+  // Use the first closure as the base for common information
+  const firstClosure = closures[0];
+  const {
+    lat,
+    lon,
+    location,
+    groupSize,
+    groupId
+  } = firstClosure;
+  
+  let regionCfg;
+  const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
+  const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
+  const region = Object.keys(cfg.regionBoundaries).find(r => {
+    const f = cfg.regionBoundaries[r].locationKeywordsFilter;
+    return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
+  });
+  
+  if (region) {
+    logInfo(`Assigning ${closures.length} adjacent closures (group ${groupId}) to region ${region}`);
+    regionCfg = cfg.regionBoundaries[region];
+  } else {
+    // Remove all closures from tracking if region not found
+    closures.forEach(c => delete tracked[c.id]);
+    logError(`Adjacent closures are in a region that is not configured: ${location}`);
+    return;
+  }
+
+  // Update tracking for all closures
+  closures.forEach(c => {
+    if (tracked[c.id]) {
+      tracked[c.id].country = region;
+    }
+  });
+  fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
+
+  const formattedLocation = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
+  const slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
+  
+  // Average coordinates to get a center point
+  const adjLon1 = +lon.toFixed(3) + 0.005;
+  const adjLat1 = +lat.toFixed(3) + 0.005;
+  const adjLon2 = +lon.toFixed(3) - 0.005;
+  const adjLat2 = +lat.toFixed(3) - 0.005;
+
+  let envPrefix: string;
+  if (regionCfg.env === 'row') {
+    envPrefix = "row-";
+  } else if (regionCfg.env === 'il') {
+    envPrefix = "il-";
+  } else {
+    envPrefix = "";
+  }
+
+  // Get preview tile URL (use first closure's coordinates)
+  const tileX = lon2tile(lon, previewZoomLevel);
+  const tileY = lat2tile(lat, previewZoomLevel);
+  const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg);
+  
+  // Create a comprehensive map link with all closure coordinates
+  const allLatLons = closures.map(c => `${c.lat.toFixed(6)},${c.lon.toFixed(6)}`);
+  const centerLat = closures.reduce((sum, c) => sum + c.lat, 0) / closures.length;
+  const centerLon = closures.reduce((sum, c) => sum + c.lon, 0) / closures.length;
+  const allSegments = closures.map(c => c.segID).join(',');
+  
+  const editorUrl =
+    `https://www.waze.com/en-US/editor?env=${regionCfg.env}` +
+    `&lat=${centerLat.toFixed(6)}` +
+    `&lon=${centerLon.toFixed(6)}` +
+    `&zoomLevel=17&segments=${allSegments}`;
+  const liveMapUrl =
+    `https://www.waze.com/live-map/directions?to=ll.` +
+    `${centerLat.toFixed(6)}%2C${centerLon.toFixed(6)}`;
+  const appUrl = `https://www.waze.com/ul?ll=${centerLat.toFixed(
+    6
+  )},${centerLon.toFixed(6)}`;
+  
+  let dotMap;
+  if (regionCfg.departmentOfTransporationUrl) {
+    if (
+      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
+      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
+    ) {
+      dotMap = regionCfg.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
+    } else {
+      dotMap = regionCfg.departmentOfTransporationUrl.replace(
+        "{lat}",
+        centerLat.toFixed(6)
+      ).replace("{lon}", centerLon.toFixed(6));
+    }
+  }
+
+  // Create a summary of all adjacent closures with their road types and connections
+  const closureDetails = closures.map((c, index) => {
+    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
+    const userName = `[${c.userName}](https://www.waze.com/user/editor/${c.userName})`;
+    const duration = c.duration || "Unknown";
+    const direction = c.direction;
+    const adjacentCount = c.adjacentClosureIds ? c.adjacentClosureIds.length : 0;
+    const connectionInfo = adjacentCount > 0 ? ` (${adjacentCount} adjacent)` : "";
+    return `${c.roadType} • ${status} • (${direction}) • ${userName} • ${duration}${connectionInfo} • <t:${(c.timestamp / 1000).toFixed(0)}:F>`;
+  }).join('\n');
+
+  const slackClosureDetails = closures.map((c, index) => {
+    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
+    const slackUsername = `<https://www.waze.com/user/editor/${c.userName}|${c.userName}>`;
+    const duration = c.duration || "Unknown";
+    const direction = c.direction;
+    const adjacentCount = c.adjacentClosureIds ? c.adjacentClosureIds.length : 0;
+    const connectionInfo = adjacentCount > 0 ? ` (${adjacentCount} adjacent)` : "";
+    return `${c.roadType} • ${status} • (${direction}) • ${slackUsername} • ${duration}${connectionInfo} • <!date^${(c.timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(c.timestamp).toLocaleString()}>`;
+  }).join('\n');
+
+  // Determine color based on the highest priority road type in the group
+  const roadTypeEnums = closures.map(c => c.roadTypeEnum).filter(rt => rt !== undefined);
+  const highestPriorityRoadType = Math.max(...roadTypeEnums);
+  const groupColor = roadTypeColors[highestPriorityRoadType as keyof typeof roadTypeColors] || 0x3498db;
+
+  const embed = {
+    author: { name: `${closures.length} Connected App Closures` },
+    color: groupColor, // Use the highest priority road type color in the group
+    fields: [
+      {
+        name: "Adjacent Road Closures",
+        value: closureDetails,
+      },
+      {
+        name: "Connection Info",
+        value: `Group ID: \`${groupId}\`\nTotal in Group: ${groupSize}`,
+        inline: true
+      },
+      {
+        name: "General Area",
+        value: formattedLocation,
+        inline: true,
+      },
+      {
+        name: "Links",
+        value:
+          `[WME (All Segments)](${editorUrl}) | ` +
+          `[LiveMap](${liveMapUrl}) | ` +
+          `[App](${appUrl})`,
+      },
+    ],
+    thumbnail: {
+      url: tileUrl,
+    },
+    ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
+      footer: {
+        text: `Scanned by ${scannerUserName}`
+      }
+    } : {}),
+  };
+
+  if (regionCfg.departmentOfTransporationUrl) {
+    const linkName =
+      regionCfg.departmentOfTransporationName ??
+      "DOT";
+    const lastField = embed.fields[embed.fields.length - 1];
+    (lastField as { value: string }).value +=
+      ` | [${linkName}](${dotMap})`;
+  }
+
+  // Send to webhooks
+  const webhooks = regionCfg.webhooks || [];
+  for (const hook of webhooks) {
+    if (hook.type === "discord") {
+      logInfo(`Sending adjacent closure notification to Discord (${region}) for ${closures.length} connected closures…`);
+      const maxRetries = 3;
+      let attempt = 0;
+      let success = false;
+      while (attempt < maxRetries && !success) {
+        attempt++;
+        const res = await fetch(hook.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ embeds: [embed] }),
+        });
+        if (res.status === 204) {
+          logInfo("Discord adjacent closure notification sent successfully.");
+          success = true;
+        } else if (res.status === 429) {
+          const retryData: any = await res.json().catch(() => null);
+          const retryAfter = (retryData && typeof retryData.retry_after === 'number') ? retryData.retry_after : 1;
+          logWarning(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
+          await delay(retryAfter * 1000);
+        } else {
+          const text = await res.text();
+          logError(`Discord webhook request failed (${res.status}): ${text}`);
+          break;
+        }
+      }
+      if (!success) {
+        logError(`Failed to send Discord adjacent closure notification after ${maxRetries} attempts.`);
+      }
+    } else if (hook.type === "slack") {
+      logInfo(`Sending adjacent closure notification to Slack (${region}) for ${closures.length} connected closures…`);
+      const dotLabel = regionCfg.departmentOfTransporationName ?? "DOT";
+      const slackBlocks = [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*${closures.length} Connected App Closures*`
+          },
+          accessory: {
+            type: "image",
+            image_url: tileUrl,
+            alt_text: "Tile preview"
+          }
+        },
+        {
+          type: "section",
+          block_id: "closureDetails",
+          text: {
+            type: "mrkdwn",
+            text: `*Adjacent Road Closures*\n${slackClosureDetails}`
+          }
+        },
+        {
+          type: "section",
+          block_id: "connectionInfo",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Connection Info*\nGroup ID: \`${groupId}\`\nTotal in Group: ${groupSize}`
+            },
+            {
+              type: "mrkdwn",
+              text: `*General Area*\n${slackLocation}`
+            }
+          ]
+        },
+        {
+          type: "section",
+          block_id: "links",
+          fields: [
+            {
+              type: "mrkdwn",
+              text: `*Links*\n• <${editorUrl}|WME (All Segments)> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
+                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
+            }
+          ]
+        }
+      ];
+
+      // Add scanner footer if we have a valid scanner username
+      if (scannerUserName && scannerUserName !== "Unknown Scanner") {
+        slackBlocks.push({
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: `Scanned by ${scannerUserName}`
+            }
+          ]
+        } as any);
+      }
+
+      const slackRes = await fetch(hook.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocks: slackBlocks }),
+      });
+      if (slackRes.ok) {
+        logInfo("Slack adjacent closure notification sent successfully.");
       } else {
         const text = await slackRes.text();
         logError(`Slack webhook request failed (${slackRes.status}): ${text}`);
