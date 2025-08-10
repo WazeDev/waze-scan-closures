@@ -183,7 +183,7 @@
             if (!node) continue;
 
             // Get all segments connected to this node
-            const connectedSegmentIds = node.segmentIds || [];
+            const connectedSegmentIds = node.connectedSegmentIds || [];
             
             for (const connectedSegmentId of connectedSegmentIds) {
                 // Skip the original segment
