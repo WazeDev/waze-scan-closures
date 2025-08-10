@@ -212,17 +212,23 @@ async function updateTracking(data: any) {
     }
     
     const regionCfg = cfg.regionBoundaries[region];
-    // Get max age configuration per region (default to 3 days if not specified)
-    const maxClosureAgeDays = regionCfg.maxClosureAgeDays ?? 3;
+    // Get max age configuration per region (default to 1 days if not specified)
+    const maxClosureAgeDays = regionCfg.maxClosureAgeDays ?? 1;
     
     // Check closure age based on region configuration
     if (maxClosureAgeDays === 0) {
-      // Only report active closures (startDate <= now <= endDate)
-      const startTime = new Date(c.createdOn || c.timestamp).getTime();
+      // Only report active closures (startDate <= now <= endDate and not finished)
+      const startTime = c.startDate ? new Date(c.startDate).getTime() : new Date(c.createdOn || c.timestamp).getTime();
       const endTime = c.endDate ? new Date(c.endDate).getTime() : now + (24 * 60 * 60 * 1000); // Default to 24h if no end date
       
+      // Skip if closure is not currently active (outside time window)
       if (now < startTime || now > endTime) {
         continue; // Skip inactive closures
+      }
+      
+      // Skip if closure status indicates it's finished/past
+      if (c.status && c.status.toLowerCase().includes("finished")) {
+        continue; // Skip finished closures
       }
     } else if (maxClosureAgeDays > 0) {
       // Check if closure is within the specified age limit
