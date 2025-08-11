@@ -26,12 +26,12 @@ function logWarning(msg: string) {
 
 // load config.json
 const configPath = path.resolve(__dirname, "..", "config.json");
-let cfg: { 
-  regionBoundaries: { [x: string]: any; }, 
-  loop?: boolean; 
-  whitelist?: string[] | Record<string, boolean>; 
+let cfg: {
+  regionBoundaries: { [x: string]: any };
+  loop?: boolean;
+  whitelist?: string[] | Record<string, boolean>;
   cleanupTrackedClosuresAfterDays?: number;
-}
+};
 try {
   cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
 } catch (err) {
@@ -52,7 +52,11 @@ fs.watchFile(configPath, { interval: 15000 }, () => {
     // Run cleanup when config is reloaded in case cleanup settings changed
     cleanupOldTrackedClosures();
   } catch (err) {
-    logError(`❌ Failed to reload config.json:) ${err instanceof Error ? err.message : err}`);
+    logError(
+      `❌ Failed to reload config.json:) ${
+        err instanceof Error ? err.message : err
+      }`
+    );
   }
 });
 
@@ -60,8 +64,8 @@ const tileServers = [
   "https://editor-tiles-${env}-1.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
   "https://editor-tiles-${env}-2.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
   "https://editor-tiles-${env}-3.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
-  "https://editor-tiles-${env}-4.waze.com/tiles/roads/${z}/${x}/${y}/tile.png"
-]
+  "https://editor-tiles-${env}-4.waze.com/tiles/roads/${z}/${x}/${y}/tile.png",
+];
 
 const roadTypes = {
   1: "Street",
@@ -84,19 +88,19 @@ const roadTypes = {
 };
 
 const roadTypeColors = {
-  1: 0xD5D4C4, // Street
-  2: 0xD5CF4D, // Primary Street
-  3: 0xAF6ABA, // Freeway (Interstate / Other)
-  4: 0x9EA99F, // Ramp
+  1: 0xd5d4c4, // Street
+  2: 0xd5cf4d, // Primary Street
+  3: 0xaf6aba, // Freeway (Interstate / Other)
+  4: 0x9ea99f, // Ramp
   5: 0x8e44ad, // Routable Pedestrian Path
-  6: 0x3CA3B9, // Major Highway
-  7: 0x5EA978, // Minor Highway
+  6: 0x3ca3b9, // Major Highway
+  7: 0x5ea978, // Minor Highway
   8: 0x95a5a6, // Off-road / Not maintained
   9: 0x7f8c8d, // Walkway
   10: 0x34495e, // Non-Routable Pedestrian Path
   15: 0x16a085, // Ferry
   16: 0x27ae60, // Stairway
-  17: 0xA8A45F, // Private Road
+  17: 0xa8a45f, // Private Road
   18: 0x8e44ad, // Railroad
   19: 0x2980b9, // Runway
   20: 0x979797, // Parking Lot Road
@@ -119,15 +123,20 @@ function lon2tile(lon: number, zoom: number = previewZoomLevel) {
 
 function lat2tile(lat: number, zoom: number = previewZoomLevel) {
   const rad = (lat * Math.PI) / 180;
-  return String(Math.floor(
-    ((1 -
-      Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) /
-      2) *
-    2 ** zoom
-  ));
+  return String(
+    Math.floor(
+      ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) *
+        2 ** zoom
+    )
+  );
 }
 
-function pickTileServer(x: string, y: string, t: typeof tileServers = tileServers, r: { env: string; }) {
+function pickTileServer(
+  x: string,
+  y: string,
+  t: typeof tileServers = tileServers,
+  r: { env: string }
+) {
   let n = 1;
   let e = `${x}${y}`;
   for (let i = 0; i < e.length; i++) {
@@ -144,10 +153,13 @@ function pickTileServer(x: string, y: string, t: typeof tileServers = tileServer
   } else {
     env = "na";
   }
-  let url = tileServer.replace("${x}", x).replace("${y}", y).replace("${z}", previewZoomLevel.toString()).replace("${env}", env);
+  let url = tileServer
+    .replace("${x}", x)
+    .replace("${y}", y)
+    .replace("${z}", previewZoomLevel.toString())
+    .replace("${env}", env);
   return url;
 }
-
 
 const TRACK_FILE = path.resolve(__dirname, "..", "closure_tracking.json");
 // Load or initialize tracking store (id -> { firstSeen, country })
@@ -159,28 +171,30 @@ if (fs.existsSync(TRACK_FILE)) {
 // Function to clean up old tracked closures based on config
 function cleanupOldTrackedClosures() {
   const cleanupAgeDays = cfg.cleanupTrackedClosuresAfterDays;
-  
+
   // Skip cleanup if not configured or set to 0 (disabled)
   if (!cleanupAgeDays || cleanupAgeDays <= 0) {
     return;
   }
-  
+
   const now = Date.now();
   const maxAge = cleanupAgeDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
   let removedCount = 0;
-  
+
   for (const [id, info] of Object.entries(tracked)) {
     const firstSeenTime = new Date(info.firstSeen).getTime();
-    
+
     if (now - firstSeenTime > maxAge) {
       delete tracked[id];
       removedCount++;
     }
   }
-  
+
   if (removedCount > 0) {
     fs.writeFileSync(TRACK_FILE, JSON.stringify(tracked, null, 2));
-    logInfo(`🧹 Cleaned up ${removedCount} old tracked closures (older than ${cleanupAgeDays} days)`);
+    logInfo(
+      `🧹 Cleaned up ${removedCount} old tracked closures (older than ${cleanupAgeDays} days)`
+    );
   }
 }
 
@@ -196,36 +210,42 @@ async function updateTracking(data: any) {
   const arr = data.closures || [];
   const userName = data.userName || "Unknown User";
   const now = Date.now();
-  
+
   for (const c of arr) {
     const country = c.location.split(",").pop()!.trim();
-    
+
     // Find the region first to get its maxClosureAgeDays setting
-    const region = Object.keys(cfg.regionBoundaries).find(r => {
+    const region = Object.keys(cfg.regionBoundaries).find((r) => {
       const f = cfg.regionBoundaries[r].locationKeywordsFilter;
-      return f?.some((k: string) => c.location.toLowerCase().includes(k.toLowerCase()));
+      return f?.some((k: string) =>
+        c.location.toLowerCase().includes(k.toLowerCase())
+      );
     });
-    
+
     if (!region) {
       // Skip closures that don't match any configured region
       continue;
     }
-    
+
     const regionCfg = cfg.regionBoundaries[region];
     // Get max age configuration per region (default to 1 days if not specified)
     const maxClosureAgeDays = regionCfg.maxClosureAgeDays ?? 1;
-    
+
     // Check closure age based on region configuration
     if (maxClosureAgeDays === 0) {
       // Only report active closures (startDate <= now <= endDate and not finished)
-      const startTime = c.startDate ? new Date(c.startDate).getTime() : new Date(c.createdOn || c.timestamp).getTime();
-      const endTime = c.endDate ? new Date(c.endDate).getTime() : now + (24 * 60 * 60 * 1000); // Default to 24h if no end date
-      
+      const startTime = c.startDate
+        ? new Date(c.startDate).getTime()
+        : new Date(c.createdOn || c.timestamp).getTime();
+      const endTime = c.endDate
+        ? new Date(c.endDate).getTime()
+        : now + 24 * 60 * 60 * 1000; // Default to 24h if no end date
+
       // Skip if closure is not currently active (outside time window)
       if (now < startTime || now > endTime) {
         continue; // Skip inactive closures
       }
-      
+
       // Skip if closure status indicates it's finished/past
       if (c.status && c.status.toLowerCase().includes("finished")) {
         continue; // Skip finished closures
@@ -234,13 +254,13 @@ async function updateTracking(data: any) {
       // Check if closure is within the specified age limit
       const closureTime = new Date(c.createdOn || c.timestamp).getTime();
       const maxAge = maxClosureAgeDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-      
+
       if (now - closureTime > maxAge) {
         continue; // Skip closures older than the limit
       }
     }
     // If maxClosureAgeDays is negative, report all closures (no age limit)
-    
+
     if (!tracked[c.id]) {
       tracked[c.id] = { firstSeen: new Date().toISOString(), country };
       newClosures.push({
@@ -260,34 +280,36 @@ async function updateTracking(data: any) {
         isPartOfGroup: c.isPartOfGroup || false,
         groupId: c.groupId || null,
         groupSize: c.groupSize || 1,
-        adjacentClosureIds: c.adjacentClosureIds || []
+        adjacentClosureIds: c.adjacentClosureIds || [],
       });
     }
   }
   if (newClosures.length) {
     logInfo(`👀 ${userName} found ${newClosures.length} new closures!`);
-    
+
     // Group closures by adjacency first (if available), then by segment ID and region
     const adjacencyGroups = new Map<string, any[]>();
     const segmentGroups = new Map<string, any[]>();
     const ungroupedClosures: any[] = [];
-    
+
     for (const closure of newClosures) {
       // Find the region for this closure to check grouping setting
-      const region = Object.keys(cfg.regionBoundaries).find(r => {
+      const region = Object.keys(cfg.regionBoundaries).find((r) => {
         const f = cfg.regionBoundaries[r].locationKeywordsFilter;
-        return f?.some((k: string) => closure.location.toLowerCase().includes(k.toLowerCase()));
+        return f?.some((k: string) =>
+          closure.location.toLowerCase().includes(k.toLowerCase())
+        );
       });
-      
+
       const regionCfg = region ? cfg.regionBoundaries[region] : null;
       const shouldGroup = regionCfg?.groupClosuresBySegment ?? true; // Default to true if not specified
       const useAdjacencyGrouping = regionCfg?.useAdjacencyGrouping ?? true; // Default to true for adjacency grouping
-      
+
       if (!shouldGroup) {
         ungroupedClosures.push(closure);
         continue;
       }
-      
+
       // Priority 1: Use adjacency grouping if enabled and closure is part of a group
       if (useAdjacencyGrouping && closure.isPartOfGroup && closure.groupId) {
         const adjacencyKey = `adj-${closure.groupId}-${region}`;
@@ -304,13 +326,13 @@ async function updateTracking(data: any) {
         segmentGroups.get(segmentKey)!.push(closure);
       }
     }
-    
+
     // Send notifications for ungrouped closures (regions that have grouping disabled)
     for (const closure of ungroupedClosures) {
       await delay(1000); // delay to avoid rate limiting
       await notifyDiscord({ ...closure, scannerUserName: userName });
     }
-    
+
     // Send notifications for adjacency groups (connected closures)
     for (const [groupKey, closures] of adjacencyGroups) {
       await delay(1000); // delay to avoid rate limiting
@@ -322,7 +344,7 @@ async function updateTracking(data: any) {
         await notifyDiscordAdjacencyGroup(closures, userName);
       }
     }
-    
+
     // Send notifications for segment groups (same segment, different times)
     for (const [groupKey, closures] of segmentGroups) {
       await delay(1000); // delay to avoid rate limiting
@@ -355,7 +377,7 @@ async function notifyDiscord({
   isPartOfGroup = false, // adjacency information
   groupId = null,
   groupSize = 1,
-  adjacentClosureIds = []
+  adjacentClosureIds = [],
 }: {
   id: string;
   segID: string;
@@ -379,10 +401,14 @@ async function notifyDiscord({
   let regionCfg;
   // check location if any keywords from region.locationKeywordsFilter are present
   const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
-  const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
-  const region = Object.keys(cfg.regionBoundaries).find(r => {
+  const searchQuery = encodeURIComponent(
+    `(${location} | ${lat},${lon}) ${searchParams}`
+  );
+  const region = Object.keys(cfg.regionBoundaries).find((r) => {
     const f = cfg.regionBoundaries[r].locationKeywordsFilter;
-    return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
+    return f?.some((k: string) =>
+      location.toLowerCase().includes(k.toLowerCase())
+    );
   });
   if (region) {
     logInfo(`Assigning closure ${id} to region ${region}`);
@@ -404,9 +430,9 @@ async function notifyDiscord({
   const adjLat2 = +lat.toFixed(3) - 0.005;
 
   let envPrefix: string;
-  if (regionCfg.env === 'row') {
+  if (regionCfg.env === "row") {
     envPrefix = "row-";
-  } else if (regionCfg.env === 'il') {
+  } else if (regionCfg.env === "il") {
     envPrefix = "il-";
   } else {
     envPrefix = "";
@@ -419,8 +445,8 @@ async function notifyDiscord({
   // Get preview tile URL
   const tileX = lon2tile(lon, previewZoomLevel);
   const tileY = lat2tile(lat, previewZoomLevel);
-  const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg) // pick a tile server based on country
-  
+  const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg); // pick a tile server based on country
+
   let slackUsername = `<https://www.waze.com/user/editor/${userName}|${userName}>`;
   userName = `[${userName}](https://www.waze.com/user/editor/${userName})`;
   const editorUrl =
@@ -431,27 +457,36 @@ async function notifyDiscord({
   const liveMapUrl =
     `https://www.waze.com/live-map/directions?to=ll.` +
     `${lat.toFixed(6)}%2C${lon.toFixed(6)}`;
-  const appUrl = `https://www.waze.com/ul?ll=${lat.toFixed(
+  const appUrl = `https://www.waze.com/ul?ll=${lat.toFixed(6)},${lon.toFixed(
     6
-  )},${lon.toFixed(6)}`;
+  )}`;
   let dotMap;
   if (regionCfg.departmentOfTransporationUrl) {
     // if region has a DoT URL, append it to the appUrl
     // Check if the URL contains {lat} and {lon} twice, if so, use bounding box, if not, use start point
     if (
-      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
-      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
+      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length ===
+        2 &&
+      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length ===
+        2
     ) {
-      dotMap = regionCfg.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
+      dotMap = regionCfg.departmentOfTransporationUrl
+        .replace("{lat}", adjLat1.toFixed(6))
+        .replace("{lat}", adjLat2.toFixed(6))
+        .replace("{lon}", adjLon1.toFixed(6))
+        .replace("{lon}", adjLon2.toFixed(6));
     } else {
-      dotMap = regionCfg.departmentOfTransporationUrl.replace(
-        "{lat}",
-        lat.toFixed(6)
-      ).replace("{lon}", lon.toFixed(6));
+      dotMap = regionCfg.departmentOfTransporationUrl
+        .replace("{lat}", lat.toFixed(6))
+        .replace("{lon}", lon.toFixed(6));
     }
   }
   const embed = {
-    author: { name: `${closureStatus} App Closure (${direction})${isPartOfGroup ? ' (Connected)' : ''}` },
+    author: {
+      name: `${closureStatus} App Closure (${direction})${
+        isPartOfGroup ? " (Connected)" : ""
+      }`,
+    },
     // use the cached segment (sc) instead of undefined `segment`
     color: roadTypeColors[roadTypeEnum] || 0x3498db, // Keep road type colors
     fields: [
@@ -470,13 +505,18 @@ async function notifyDiscord({
         value: location,
         inline: true,
       },
-      ...(isPartOfGroup ? [{
-        name: "Adjacent Closures",
-        value: `Part of group with ${groupSize} total closures\n` +
-               `Group ID: \`${groupId}\`\n` +
-               `${adjacentClosureIds.length} directly connected closures`,
-        inline: false,
-      }] : []),
+      ...(isPartOfGroup
+        ? [
+            {
+              name: "Adjacent Closures",
+              value:
+                `Part of group with ${groupSize} total closures\n` +
+                `Group ID: \`${groupId}\`\n` +
+                `${adjacentClosureIds.length} directly connected closures`,
+              inline: false,
+            },
+          ]
+        : []),
       {
         name: "Links",
         value:
@@ -488,21 +528,20 @@ async function notifyDiscord({
     thumbnail: {
       url: tileUrl,
     },
-    ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
-      footer: {
-        text: `Scanned by ${scannerUserName}`
-      }
-    } : {}),
+    ...(scannerUserName && scannerUserName !== "Unknown Scanner"
+      ? {
+          footer: {
+            text: `Scanned by ${scannerUserName}`,
+          },
+        }
+      : {}),
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
     // use custom name if provided, else default
-    const linkName =
-      regionCfg.departmentOfTransporationName ??
-      "DOT";
+    const linkName = regionCfg.departmentOfTransporationName ?? "DOT";
     const lastField = embed.fields[embed.fields.length - 1];
-    (lastField as { value: string }).value +=
-      ` | [${linkName}](${dotMap})`;
+    (lastField as { value: string }).value += ` | [${linkName}](${dotMap})`;
   }
 
   // 4) send to webhooks
@@ -525,8 +564,13 @@ async function notifyDiscord({
           success = true;
         } else if (res.status === 429) {
           const retryData: any = await res.json().catch(() => null);
-          const retryAfter = (retryData && typeof retryData.retry_after === 'number') ? retryData.retry_after : 1;
-          logWarning(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
+          const retryAfter =
+            retryData && typeof retryData.retry_after === "number"
+              ? retryData.retry_after
+              : 1;
+          logWarning(
+            `Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`
+          );
           await delay(retryAfter * 1000);
         } else {
           const text = await res.text();
@@ -535,25 +579,26 @@ async function notifyDiscord({
         }
       }
       if (!success) {
-        logError(`Failed to send Discord notification after ${maxRetries} attempts.`);
+        logError(
+          `Failed to send Discord notification after ${maxRetries} attempts.`
+        );
       }
     } else if (hook.type === "slack") {
       logInfo(`Sending a closure notification to Slack (${region})…`);
       // use custom DOT name or default
-      const dotLabel = regionCfg.departmentOfTransporationName
-        ?? "DOT";
+      const dotLabel = regionCfg.departmentOfTransporationName ?? "DOT";
       const slackBlocks = [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `*New App Closure (${direction})*\n*User*\n${slackUsername}`
+            text: `*New App Closure (${direction})*\n*User*\n${slackUsername}`,
           },
           accessory: {
             type: "image",
             image_url: tileUrl,
-            alt_text: "Tile preview"
-          }
+            alt_text: "Tile preview",
+          },
         },
         {
           type: "section",
@@ -561,9 +606,13 @@ async function notifyDiscord({
           fields: [
             {
               type: "mrkdwn",
-              text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(timestamp).toLocaleString()}>\n*Duration*\n${duration}`
-            }
-          ]
+              text: `*Reported At*\n<!date^${(timestamp / 1000).toFixed(
+                0
+              )}^{date_long} {time}|${new Date(
+                timestamp
+              ).toLocaleString()}>\n*Duration*\n${duration}`,
+            },
+          ],
         },
         {
           type: "section",
@@ -571,35 +620,44 @@ async function notifyDiscord({
           fields: [
             {
               type: "mrkdwn",
-              text: `*Segment Type*\n${roadType}`
+              text: `*Segment Type*\n${roadType}`,
             },
             {
               type: "mrkdwn",
-              text: `*Location*\n${slackLocation}`
-            }
-          ]
+              text: `*Location*\n${slackLocation}`,
+            },
+          ],
         },
-        ...(isPartOfGroup ? [{
-          type: "section",
-          block_id: "adjacency",
-          fields: [
-            {
-              type: "mrkdwn",
-              text: `*Adjacent Closures*\nPart of group with ${groupSize} total closures\nGroup ID: \`${groupId}\`\n${adjacentClosureIds.length} directly connected closures`
-            }
-          ]
-        }] : []),
+        ...(isPartOfGroup
+          ? [
+              {
+                type: "section",
+                block_id: "adjacency",
+                fields: [
+                  {
+                    type: "mrkdwn",
+                    text: `*Adjacent Closures*\nPart of group with ${groupSize} total closures\nGroup ID: \`${groupId}\`\n${adjacentClosureIds.length} directly connected closures`,
+                  },
+                ],
+              },
+            ]
+          : []),
         {
           type: "section",
           block_id: "links",
           fields: [
             {
               type: "mrkdwn",
-              text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
-                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
-            }
-          ]
-        }
+              text:
+                `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
+                `${
+                  regionCfg.departmentOfTransporationUrl
+                    ? ` | <${dotMap}|${dotLabel}>`
+                    : ""
+                }`,
+            },
+          ],
+        },
       ];
 
       // Add scanner footer if we have a valid scanner username
@@ -609,9 +667,9 @@ async function notifyDiscord({
           elements: [
             {
               type: "mrkdwn",
-              text: `Scanned by ${scannerUserName}`
-            }
-          ]
+              text: `Scanned by ${scannerUserName}`,
+            },
+          ],
         } as any);
       }
       const slackRes = await fetch(hook.url, {
@@ -633,40 +691,44 @@ async function notifyDiscord({
 }
 
 // helper to notify Discord with grouped closures on the same segment
-async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "Unknown Scanner") {
+async function notifyDiscordGrouped(
+  closures: any[],
+  scannerUserName: string = "Unknown Scanner"
+) {
   if (closures.length === 0) return;
-  
+
   // Use the first closure as the base for common information
   const firstClosure = closures[0];
-  const {
-    segID,
-    lat,
-    lon,
-    location,
-    roadType,
-    roadTypeEnum
-  } = firstClosure;
-  
+  const { segID, lat, lon, location, roadType, roadTypeEnum } = firstClosure;
+
   let regionCfg;
   const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
-  const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
-  const region = Object.keys(cfg.regionBoundaries).find(r => {
+  const searchQuery = encodeURIComponent(
+    `(${location} | ${lat},${lon}) ${searchParams}`
+  );
+  const region = Object.keys(cfg.regionBoundaries).find((r) => {
     const f = cfg.regionBoundaries[r].locationKeywordsFilter;
-    return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
+    return f?.some((k: string) =>
+      location.toLowerCase().includes(k.toLowerCase())
+    );
   });
-  
+
   if (region) {
-    logInfo(`Assigning ${closures.length} grouped closures to region ${region}`);
+    logInfo(
+      `Assigning ${closures.length} grouped closures to region ${region}`
+    );
     regionCfg = cfg.regionBoundaries[region];
   } else {
     // Remove all closures from tracking if region not found
-    closures.forEach(c => delete tracked[c.id]);
-    logError(`Grouped closures are in a region that is not configured: ${location}`);
+    closures.forEach((c) => delete tracked[c.id]);
+    logError(
+      `Grouped closures are in a region that is not configured: ${location}`
+    );
     return;
   }
 
   // Update tracking for all closures
-  closures.forEach(c => {
+  closures.forEach((c) => {
     if (tracked[c.id]) {
       tracked[c.id].country = region;
     }
@@ -675,7 +737,7 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
 
   const formattedLocation = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
   const slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
-  
+
   // Average coordinates to get a center point
   const adjLon1 = +lon.toFixed(3) + 0.005;
   const adjLat1 = +lat.toFixed(3) + 0.005;
@@ -683,9 +745,9 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
   const adjLat2 = +lat.toFixed(3) - 0.005;
 
   let envPrefix: string;
-  if (regionCfg.env === 'row') {
+  if (regionCfg.env === "row") {
     envPrefix = "row-";
-  } else if (regionCfg.env === 'il') {
+  } else if (regionCfg.env === "il") {
     envPrefix = "il-";
   } else {
     envPrefix = "";
@@ -695,7 +757,7 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
   const tileX = lon2tile(lon, previewZoomLevel);
   const tileY = lat2tile(lat, previewZoomLevel);
   const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg);
-  
+
   const editorUrl =
     `https://www.waze.com/en-US/editor?env=${regionCfg.env}` +
     `&lat=${lat.toFixed(6)}` +
@@ -704,45 +766,65 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
   const liveMapUrl =
     `https://www.waze.com/live-map/directions?to=ll.` +
     `${lat.toFixed(6)}%2C${lon.toFixed(6)}`;
-  const appUrl = `https://www.waze.com/ul?ll=${lat.toFixed(
+  const appUrl = `https://www.waze.com/ul?ll=${lat.toFixed(6)},${lon.toFixed(
     6
-  )},${lon.toFixed(6)}`;
-  
+  )}`;
+
   let dotMap;
   if (regionCfg.departmentOfTransporationUrl) {
     if (
-      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
-      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
+      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length ===
+        2 &&
+      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length ===
+        2
     ) {
-      dotMap = regionCfg.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
+      dotMap = regionCfg.departmentOfTransporationUrl
+        .replace("{lat}", adjLat1.toFixed(6))
+        .replace("{lat}", adjLat2.toFixed(6))
+        .replace("{lon}", adjLon1.toFixed(6))
+        .replace("{lon}", adjLon2.toFixed(6));
     } else {
-      dotMap = regionCfg.departmentOfTransporationUrl.replace(
-        "{lat}",
-        lat.toFixed(6)
-      ).replace("{lon}", lon.toFixed(6));
+      dotMap = regionCfg.departmentOfTransporationUrl
+        .replace("{lat}", lat.toFixed(6))
+        .replace("{lon}", lon.toFixed(6));
     }
   }
 
   // Create a summary of all closures
-  const closureDetails = closures.map((c, index) => {
-    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
-    const userName = `[${c.userName}](https://www.waze.com/user/editor/${c.userName})`;
-    const duration = c.duration || "Unknown";
-    const direction = c.direction;
-    return `${status} • (${direction}) • ${userName} • ${duration} • <t:${(c.timestamp / 1000).toFixed(0)}:F>`;
-  }).join('\n');
+  const closureDetails = closures
+    .map((c, index) => {
+      const status = c.closureStatus.startsWith("Finished")
+        ? "Past"
+        : c.closureStatus;
+      const userName = `[${c.userName}](https://www.waze.com/user/editor/${c.userName})`;
+      const duration = c.duration || "Unknown";
+      const direction = c.direction;
+      return `${status} • (${direction}) • ${userName} • ${duration} • <t:${(
+        c.timestamp / 1000
+      ).toFixed(0)}:F>`;
+    })
+    .join("\n");
 
-  const slackClosureDetails = closures.map((c, index) => {
-    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
-    const slackUsername = `<https://www.waze.com/user/editor/${c.userName}|${c.userName}>`;
-    const duration = c.duration || "Unknown";
-    const direction = c.direction;
-    return `${status} • (${direction}) • ${slackUsername} • ${duration} • <!date^${(c.timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(c.timestamp).toLocaleString()}>`;
-  }).join('\n');
+  const slackClosureDetails = closures
+    .map((c, index) => {
+      const status = c.closureStatus.startsWith("Finished")
+        ? "Past"
+        : c.closureStatus;
+      const slackUsername = `<https://www.waze.com/user/editor/${c.userName}|${c.userName}>`;
+      const duration = c.duration || "Unknown";
+      const direction = c.direction;
+      return `${status} • (${direction}) • ${slackUsername} • ${duration} • <!date^${(
+        c.timestamp / 1000
+      ).toFixed(0)}^{date_long} {time}|${new Date(
+        c.timestamp
+      ).toLocaleString()}>`;
+    })
+    .join("\n");
 
   const embed = {
     author: { name: `${closures.length} App Closures on Same Segment` },
-    color: roadTypeColors[roadTypeEnum as keyof typeof roadTypeColors] || 0x3498db, // default to blue if no color found
+    color:
+      roadTypeColors[roadTypeEnum as keyof typeof roadTypeColors] || 0x3498db, // default to blue if no color found
     fields: [
       {
         name: "Closures",
@@ -765,27 +847,28 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
     thumbnail: {
       url: tileUrl,
     },
-    ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
-      footer: {
-        text: `Scanned by ${scannerUserName}`
-      }
-    } : {}),
+    ...(scannerUserName && scannerUserName !== "Unknown Scanner"
+      ? {
+          footer: {
+            text: `Scanned by ${scannerUserName}`,
+          },
+        }
+      : {}),
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
-    const linkName =
-      regionCfg.departmentOfTransporationName ??
-      "DOT";
+    const linkName = regionCfg.departmentOfTransporationName ?? "DOT";
     const lastField = embed.fields[embed.fields.length - 1];
-    (lastField as { value: string }).value +=
-      ` | [${linkName}](${dotMap})`;
+    (lastField as { value: string }).value += ` | [${linkName}](${dotMap})`;
   }
 
   // Send to webhooks
   const webhooks = regionCfg.webhooks || [];
   for (const hook of webhooks) {
     if (hook.type === "discord") {
-      logInfo(`Sending grouped closure notification to Discord (${region}) for ${closures.length} closures…`);
+      logInfo(
+        `Sending grouped closure notification to Discord (${region}) for ${closures.length} closures…`
+      );
       const maxRetries = 3;
       let attempt = 0;
       let success = false;
@@ -801,8 +884,13 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
           success = true;
         } else if (res.status === 429) {
           const retryData: any = await res.json().catch(() => null);
-          const retryAfter = (retryData && typeof retryData.retry_after === 'number') ? retryData.retry_after : 1;
-          logWarning(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
+          const retryAfter =
+            retryData && typeof retryData.retry_after === "number"
+              ? retryData.retry_after
+              : 1;
+          logWarning(
+            `Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`
+          );
           await delay(retryAfter * 1000);
         } else {
           const text = await res.text();
@@ -811,31 +899,35 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
         }
       }
       if (!success) {
-        logError(`Failed to send Discord grouped notification after ${maxRetries} attempts.`);
+        logError(
+          `Failed to send Discord grouped notification after ${maxRetries} attempts.`
+        );
       }
     } else if (hook.type === "slack") {
-      logInfo(`Sending grouped closure notification to Slack (${region}) for ${closures.length} closures…`);
+      logInfo(
+        `Sending grouped closure notification to Slack (${region}) for ${closures.length} closures…`
+      );
       const dotLabel = regionCfg.departmentOfTransporationName ?? "DOT";
       const slackBlocks = [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `*${closures.length} App Closures on Same Segment*`
+            text: `*${closures.length} App Closures on Same Segment*`,
           },
           accessory: {
             type: "image",
             image_url: tileUrl,
-            alt_text: "Tile preview"
-          }
+            alt_text: "Tile preview",
+          },
         },
         {
           type: "section",
           block_id: "closureDetails",
           text: {
             type: "mrkdwn",
-            text: `*Closures*\n${slackClosureDetails}`
-          }
+            text: `*Closures*\n${slackClosureDetails}`,
+          },
         },
         {
           type: "section",
@@ -843,13 +935,13 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
           fields: [
             {
               type: "mrkdwn",
-              text: `*Segment Type*\n${roadType}`
+              text: `*Segment Type*\n${roadType}`,
             },
             {
               type: "mrkdwn",
-              text: `*Location*\n${slackLocation}`
-            }
-          ]
+              text: `*Location*\n${slackLocation}`,
+            },
+          ],
         },
         {
           type: "section",
@@ -857,11 +949,16 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
           fields: [
             {
               type: "mrkdwn",
-              text: `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
-                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
-            }
-          ]
-        }
+              text:
+                `*Links*\n• <${editorUrl}|WME> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
+                `${
+                  regionCfg.departmentOfTransporationUrl
+                    ? ` | <${dotMap}|${dotLabel}>`
+                    : ""
+                }`,
+            },
+          ],
+        },
       ];
 
       // Add scanner footer if we have a valid scanner username
@@ -871,9 +968,9 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
           elements: [
             {
               type: "mrkdwn",
-              text: `Scanned by ${scannerUserName}`
-            }
-          ]
+              text: `Scanned by ${scannerUserName}`,
+            },
+          ],
         } as any);
       }
 
@@ -896,39 +993,44 @@ async function notifyDiscordGrouped(closures: any[], scannerUserName: string = "
 }
 
 // helper to notify Discord with adjacency-grouped closures (connected via nodes)
-async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: string = "Unknown Scanner") {
+async function notifyDiscordAdjacencyGroup(
+  closures: any[],
+  scannerUserName: string = "Unknown Scanner"
+) {
   if (closures.length === 0) return;
-  
+
   // Use the first closure as the base for common information
   const firstClosure = closures[0];
-  const {
-    lat,
-    lon,
-    location,
-    groupSize,
-    groupId
-  } = firstClosure;
-  
+  const { lat, lon, location, groupSize, groupId } = firstClosure;
+
   let regionCfg;
   const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
-  const searchQuery = encodeURIComponent(`(${location} | ${lat},${lon}) ${searchParams}`);
-  const region = Object.keys(cfg.regionBoundaries).find(r => {
+  const searchQuery = encodeURIComponent(
+    `(${location} | ${lat},${lon}) ${searchParams}`
+  );
+  const region = Object.keys(cfg.regionBoundaries).find((r) => {
     const f = cfg.regionBoundaries[r].locationKeywordsFilter;
-    return f?.some((k: string) => location.toLowerCase().includes(k.toLowerCase()));
+    return f?.some((k: string) =>
+      location.toLowerCase().includes(k.toLowerCase())
+    );
   });
-  
+
   if (region) {
-    logInfo(`Assigning ${closures.length} adjacent closures (group ${groupId}) to region ${region}`);
+    logInfo(
+      `Assigning ${closures.length} adjacent closures (group ${groupId}) to region ${region}`
+    );
     regionCfg = cfg.regionBoundaries[region];
   } else {
     // Remove all closures from tracking if region not found
-    closures.forEach(c => delete tracked[c.id]);
-    logError(`Adjacent closures are in a region that is not configured: ${location}`);
+    closures.forEach((c) => delete tracked[c.id]);
+    logError(
+      `Adjacent closures are in a region that is not configured: ${location}`
+    );
     return;
   }
 
   // Update tracking for all closures
-  closures.forEach(c => {
+  closures.forEach((c) => {
     if (tracked[c.id]) {
       tracked[c.id].country = region;
     }
@@ -937,7 +1039,7 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
 
   const formattedLocation = `[${location}](https://www.google.com/search?q=${searchQuery}&udm=50)`;
   const slackLocation = `<https://www.google.com/search?q=${searchQuery}&udm=50|${location}>`;
-  
+
   // Average coordinates to get a center point
   const adjLon1 = +lon.toFixed(3) + 0.005;
   const adjLat1 = +lat.toFixed(3) + 0.005;
@@ -945,9 +1047,9 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
   const adjLat2 = +lat.toFixed(3) - 0.005;
 
   let envPrefix: string;
-  if (regionCfg.env === 'row') {
+  if (regionCfg.env === "row") {
     envPrefix = "row-";
-  } else if (regionCfg.env === 'il') {
+  } else if (regionCfg.env === "il") {
     envPrefix = "il-";
   } else {
     envPrefix = "";
@@ -957,71 +1059,102 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
   const tileX = lon2tile(lon, previewZoomLevel);
   const tileY = lat2tile(lat, previewZoomLevel);
   const tileUrl = pickTileServer(tileX, tileY, tileServers, regionCfg);
-  
+
   // Create a comprehensive map link with all closure coordinates
-  const allLatLons = closures.map(c => `${c.lat.toFixed(6)},${c.lon.toFixed(6)}`);
-  const centerLat = closures.reduce((sum, c) => sum + c.lat, 0) / closures.length;
-  const centerLon = closures.reduce((sum, c) => sum + c.lon, 0) / closures.length;
-  const allSegments = closures.map(c => c.segID).join(',');
-  
-  logInfo(`🔍 Adjacency group segments: [${closures.map(c => `${c.segID}`).join(', ')}]`);
-  
+  const allLatLons = closures.map(
+    (c) => `${c.lat.toFixed(6)},${c.lon.toFixed(6)}`
+  );
+  const centerLat =
+    closures.reduce((sum, c) => sum + c.lat, 0) / closures.length;
+  const centerLon =
+    closures.reduce((sum, c) => sum + c.lon, 0) / closures.length;
+  const allSegments = closures.map((c) => c.segID).join(",");
   const editorUrl =
     `https://www.waze.com/en-US/editor?env=${regionCfg.env}` +
     `&lat=${centerLat.toFixed(6)}` +
     `&lon=${centerLon.toFixed(6)}` +
     `&zoomLevel=17&segments=${allSegments}`;
-  
-  logInfo(`🔗 Adjacency group editor URL with ${closures.length} segments: ${editorUrl}`);
-  logInfo(`🔗 URL length: ${editorUrl.length} characters`);
-  
+
   const liveMapUrl =
     `https://www.waze.com/live-map/directions?to=ll.` +
     `${centerLat.toFixed(6)}%2C${centerLon.toFixed(6)}`;
   const appUrl = `https://www.waze.com/ul?ll=${centerLat.toFixed(
     6
   )},${centerLon.toFixed(6)}`;
-  
+
   let dotMap;
   if (regionCfg.departmentOfTransporationUrl) {
     if (
-      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length === 2 &&
-      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length === 2
+      (regionCfg.departmentOfTransporationUrl.match(/{lat}/g) || []).length ===
+        2 &&
+      (regionCfg.departmentOfTransporationUrl.match(/{lon}/g) || []).length ===
+        2
     ) {
-      dotMap = regionCfg.departmentOfTransporationUrl.replace("{lat}", adjLat1.toFixed(6)).replace("{lat}", adjLat2.toFixed(6)).replace("{lon}", adjLon1.toFixed(6)).replace("{lon}", adjLon2.toFixed(6));
+      dotMap = regionCfg.departmentOfTransporationUrl
+        .replace("{lat}", adjLat1.toFixed(6))
+        .replace("{lat}", adjLat2.toFixed(6))
+        .replace("{lon}", adjLon1.toFixed(6))
+        .replace("{lon}", adjLon2.toFixed(6));
     } else {
-      dotMap = regionCfg.departmentOfTransporationUrl.replace(
-        "{lat}",
-        centerLat.toFixed(6)
-      ).replace("{lon}", centerLon.toFixed(6));
+      dotMap = regionCfg.departmentOfTransporationUrl
+        .replace("{lat}", centerLat.toFixed(6))
+        .replace("{lon}", centerLon.toFixed(6));
     }
   }
 
   // Create a summary of all adjacent closures with their road types and connections
-  const closureDetails = closures.map((c, index) => {
-    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
-    const userName = `[${c.userName}](https://www.waze.com/user/editor/${c.userName})`;
-    const duration = c.duration || "Unknown";
-    const direction = c.direction;
-    const adjacentCount = c.adjacentClosureIds ? c.adjacentClosureIds.length : 0;
-    const connectionInfo = adjacentCount > 0 ? ` (${adjacentCount} adjacent)` : "";
-    return `${c.roadType} • ${status} • (${direction}) • ${userName} • ${duration}${connectionInfo} • <t:${(c.timestamp / 1000).toFixed(0)}:F>`;
-  }).join('\n');
+  const closureDetails = closures
+    .map((c, index) => {
+      const status = c.closureStatus.startsWith("Finished")
+        ? "Past"
+        : c.closureStatus;
+      const userName = `[${c.userName}](https://www.waze.com/user/editor/${c.userName})`;
+      const duration = c.duration || "Unknown";
+      const direction = c.direction;
+      const adjacentCount = c.adjacentClosureIds
+        ? c.adjacentClosureIds.length
+        : 0;
+      const connectionInfo =
+        adjacentCount > 0 ? ` (${adjacentCount} adjacent)` : "";
+      return `${
+        c.roadType
+      } • ${status} • (${direction}) • ${userName} • ${duration}${connectionInfo} • <t:${(
+        c.timestamp / 1000
+      ).toFixed(0)}:F>`;
+    })
+    .join("\n");
 
-  const slackClosureDetails = closures.map((c, index) => {
-    const status = c.closureStatus.startsWith("Finished") ? "Past" : c.closureStatus;
-    const slackUsername = `<https://www.waze.com/user/editor/${c.userName}|${c.userName}>`;
-    const duration = c.duration || "Unknown";
-    const direction = c.direction;
-    const adjacentCount = c.adjacentClosureIds ? c.adjacentClosureIds.length : 0;
-    const connectionInfo = adjacentCount > 0 ? ` (${adjacentCount} adjacent)` : "";
-    return `${c.roadType} • ${status} • (${direction}) • ${slackUsername} • ${duration}${connectionInfo} • <!date^${(c.timestamp / 1000).toFixed(0)}^{date_long} {time}|${new Date(c.timestamp).toLocaleString()}>`;
-  }).join('\n');
+  const slackClosureDetails = closures
+    .map((c, index) => {
+      const status = c.closureStatus.startsWith("Finished")
+        ? "Past"
+        : c.closureStatus;
+      const slackUsername = `<https://www.waze.com/user/editor/${c.userName}|${c.userName}>`;
+      const duration = c.duration || "Unknown";
+      const direction = c.direction;
+      const adjacentCount = c.adjacentClosureIds
+        ? c.adjacentClosureIds.length
+        : 0;
+      const connectionInfo =
+        adjacentCount > 0 ? ` (${adjacentCount} adjacent)` : "";
+      return `${
+        c.roadType
+      } • ${status} • (${direction}) • ${slackUsername} • ${duration}${connectionInfo} • <!date^${(
+        c.timestamp / 1000
+      ).toFixed(0)}^{date_long} {time}|${new Date(
+        c.timestamp
+      ).toLocaleString()}>`;
+    })
+    .join("\n");
 
   // Determine color based on the highest priority road type in the group
-  const roadTypeEnums = closures.map(c => c.roadTypeEnum).filter(rt => rt !== undefined);
+  const roadTypeEnums = closures
+    .map((c) => c.roadTypeEnum)
+    .filter((rt) => rt !== undefined);
   const highestPriorityRoadType = Math.max(...roadTypeEnums);
-  const groupColor = roadTypeColors[highestPriorityRoadType as keyof typeof roadTypeColors] || 0x3498db;
+  const groupColor =
+    roadTypeColors[highestPriorityRoadType as keyof typeof roadTypeColors] ||
+    0x3498db;
 
   const embed = {
     author: { name: `${closures.length} Connected App Closures` },
@@ -1034,7 +1167,7 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
       {
         name: "Connection Info",
         value: `Group ID: \`${groupId}\`\nTotal in Group: ${groupSize}`,
-        inline: true
+        inline: true,
       },
       {
         name: "General Area",
@@ -1052,27 +1185,28 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
     thumbnail: {
       url: tileUrl,
     },
-    ...(scannerUserName && scannerUserName !== "Unknown Scanner" ? {
-      footer: {
-        text: `Scanned by ${scannerUserName}`
-      }
-    } : {}),
+    ...(scannerUserName && scannerUserName !== "Unknown Scanner"
+      ? {
+          footer: {
+            text: `Scanned by ${scannerUserName}`,
+          },
+        }
+      : {}),
   };
 
   if (regionCfg.departmentOfTransporationUrl) {
-    const linkName =
-      regionCfg.departmentOfTransporationName ??
-      "DOT";
+    const linkName = regionCfg.departmentOfTransporationName ?? "DOT";
     const lastField = embed.fields[embed.fields.length - 1];
-    (lastField as { value: string }).value +=
-      ` | [${linkName}](${dotMap})`;
+    (lastField as { value: string }).value += ` | [${linkName}](${dotMap})`;
   }
 
   // Send to webhooks
   const webhooks = regionCfg.webhooks || [];
   for (const hook of webhooks) {
     if (hook.type === "discord") {
-      logInfo(`Sending adjacent closure notification to Discord (${region}) for ${closures.length} connected closures…`);
+      logInfo(
+        `Sending adjacent closure notification to Discord (${region}) for ${closures.length} connected closures…`
+      );
       const maxRetries = 3;
       let attempt = 0;
       let success = false;
@@ -1088,8 +1222,13 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
           success = true;
         } else if (res.status === 429) {
           const retryData: any = await res.json().catch(() => null);
-          const retryAfter = (retryData && typeof retryData.retry_after === 'number') ? retryData.retry_after : 1;
-          logWarning(`Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`);
+          const retryAfter =
+            retryData && typeof retryData.retry_after === "number"
+              ? retryData.retry_after
+              : 1;
+          logWarning(
+            `Discord rate limited; retrying after ${retryAfter}s (attempt ${attempt}/${maxRetries})`
+          );
           await delay(retryAfter * 1000);
         } else {
           const text = await res.text();
@@ -1098,31 +1237,35 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
         }
       }
       if (!success) {
-        logError(`Failed to send Discord adjacent closure notification after ${maxRetries} attempts.`);
+        logError(
+          `Failed to send Discord adjacent closure notification after ${maxRetries} attempts.`
+        );
       }
     } else if (hook.type === "slack") {
-      logInfo(`Sending adjacent closure notification to Slack (${region}) for ${closures.length} connected closures…`);
+      logInfo(
+        `Sending adjacent closure notification to Slack (${region}) for ${closures.length} connected closures…`
+      );
       const dotLabel = regionCfg.departmentOfTransporationName ?? "DOT";
       const slackBlocks = [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `*${closures.length} Connected App Closures*`
+            text: `*${closures.length} Connected App Closures*`,
           },
           accessory: {
             type: "image",
             image_url: tileUrl,
-            alt_text: "Tile preview"
-          }
+            alt_text: "Tile preview",
+          },
         },
         {
           type: "section",
           block_id: "closureDetails",
           text: {
             type: "mrkdwn",
-            text: `*Adjacent Road Closures*\n${slackClosureDetails}`
-          }
+            text: `*Adjacent Road Closures*\n${slackClosureDetails}`,
+          },
         },
         {
           type: "section",
@@ -1130,13 +1273,13 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
           fields: [
             {
               type: "mrkdwn",
-              text: `*Connection Info*\nGroup ID: \`${groupId}\`\nTotal in Group: ${groupSize}`
+              text: `*Connection Info*\nGroup ID: \`${groupId}\`\nTotal in Group: ${groupSize}`,
             },
             {
               type: "mrkdwn",
-              text: `*General Area*\n${slackLocation}`
-            }
-          ]
+              text: `*General Area*\n${slackLocation}`,
+            },
+          ],
         },
         {
           type: "section",
@@ -1144,11 +1287,16 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
           fields: [
             {
               type: "mrkdwn",
-              text: `*Links*\n• <${editorUrl}|WME (All Segments)> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
-                `${regionCfg.departmentOfTransporationUrl ? ` | <${dotMap}|${dotLabel}>` : ""}`
-            }
-          ]
-        }
+              text:
+                `*Links*\n• <${editorUrl}|WME (All Segments)> | <${liveMapUrl}|LiveMap> | <${appUrl}|App>` +
+                `${
+                  regionCfg.departmentOfTransporationUrl
+                    ? ` | <${dotMap}|${dotLabel}>`
+                    : ""
+                }`,
+            },
+          ],
+        },
       ];
 
       // Add scanner footer if we have a valid scanner username
@@ -1158,9 +1306,9 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
           elements: [
             {
               type: "mrkdwn",
-              text: `Scanned by ${scannerUserName}`
-            }
-          ]
+              text: `Scanned by ${scannerUserName}`,
+            },
+          ],
         } as any);
       }
 
@@ -1188,10 +1336,12 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || "", `http://localhost`);
   if (url.pathname === "/uploadClosures") {
     let body = "";
-    req.on("data", chunk => { body += chunk; });
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
     req.on("end", async () => {
       if (res.headersSent) return; // Prevent duplicate responses
-      
+
       try {
         if (!body.trim()) {
           logWarning("Received empty request body for uploadClosures");
@@ -1209,7 +1359,7 @@ const server = http.createServer((req, res) => {
         // normalize old-array or object whitelist
         let mapping: Record<string, boolean> = {};
         if (Array.isArray(cfg.whitelist)) {
-          cfg.whitelist.forEach(u => mapping[u] = true);
+          cfg.whitelist.forEach((u) => (mapping[u] = true));
         } else {
           mapping = { ...(cfg.whitelist || {}) };
         }
@@ -1238,16 +1388,22 @@ const server = http.createServer((req, res) => {
           res.statusCode = 400;
           res.end("Error");
         }
-        logError(`❌ Failed to process upload: ${err instanceof Error ? err.message : err}`);
+        logError(
+          `❌ Failed to process upload: ${
+            err instanceof Error ? err.message : err
+          }`
+        );
       }
     });
-    return;   // ← ensure we don't fall through
+    return; // ← ensure we don't fall through
   } else if (url.pathname === "/trackedClosures") {
     let body = "";
-    req.on("data", chunk => { body += chunk; });
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
     req.on("end", async () => {
       if (res.headersSent) return; // Prevent duplicate responses
-      
+
       try {
         if (!body.trim()) {
           logWarning("Received empty request body for trackedClosures");
@@ -1265,7 +1421,7 @@ const server = http.createServer((req, res) => {
         // normalize old-array or object whitelist
         let mapping: Record<string, boolean> = {};
         if (Array.isArray(cfg.whitelist)) {
-          cfg.whitelist.forEach(u => mapping[u] = true);
+          cfg.whitelist.forEach((u) => (mapping[u] = true));
         } else {
           mapping = { ...(cfg.whitelist || {}) };
         }
@@ -1294,7 +1450,7 @@ const server = http.createServer((req, res) => {
             return region?.env === envFilter;
           })
           .map(([id]) => id);
-        
+
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(ids, null, 2));
@@ -1303,7 +1459,11 @@ const server = http.createServer((req, res) => {
           res.statusCode = 400;
           res.end("Error");
         }
-        logError(`❌ Failed to process trackedClosures request: ${err instanceof Error ? err.message : err}`);
+        logError(
+          `❌ Failed to process trackedClosures request: ${
+            err instanceof Error ? err.message : err
+          }`
+        );
       }
     });
     return;
@@ -1323,24 +1483,23 @@ server.listen(PORT, () => {
 });
 
 // Handle server errors
-server.on('error', (err) => {
+server.on("error", (err) => {
   logError(`❌ Server error: ${err.message}`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logInfo('📴 Received SIGTERM, shutting down gracefully');
+process.on("SIGTERM", () => {
+  logInfo("📴 Received SIGTERM, shutting down gracefully");
   server.close(() => {
-    logInfo('💤 Process terminated');
+    logInfo("💤 Process terminated");
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
-  logInfo('📴 Received SIGINT, shutting down gracefully');
+process.on("SIGINT", () => {
+  logInfo("📴 Received SIGINT, shutting down gracefully");
   server.close(() => {
-    logInfo('💤 Process terminated');
+    logInfo("💤 Process terminated");
     process.exit(0);
   });
 });
-
