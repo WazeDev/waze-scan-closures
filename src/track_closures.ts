@@ -964,11 +964,17 @@ async function notifyDiscordAdjacencyGroup(closures: any[], scannerUserName: str
   const centerLon = closures.reduce((sum, c) => sum + c.lon, 0) / closures.length;
   const allSegments = closures.map(c => c.segID).join(',');
   
+  logInfo(`🔍 Adjacency group segments: [${closures.map(c => `${c.segID}`).join(', ')}]`);
+  
   const editorUrl =
     `https://www.waze.com/en-US/editor?env=${regionCfg.env}` +
     `&lat=${centerLat.toFixed(6)}` +
     `&lon=${centerLon.toFixed(6)}` +
     `&zoomLevel=17&segments=${allSegments}`;
+  
+  logInfo(`🔗 Adjacency group editor URL with ${closures.length} segments: ${editorUrl}`);
+  logInfo(`🔗 URL length: ${editorUrl.length} characters`);
+  
   const liveMapUrl =
     `https://www.waze.com/live-map/directions?to=ll.` +
     `${centerLat.toFixed(6)}%2C${centerLon.toFixed(6)}`;
