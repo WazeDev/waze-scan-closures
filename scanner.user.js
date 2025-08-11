@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.28
+// @version      0.0.29
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -400,14 +400,14 @@
                 "Content-type": "application/json; charset=UTF-8"
             },
             onload: function (response) {
-                setStatusMsg("Closures uploaded successfully!", '#007700');
+                setStatusMsg(`${uploadData.closures.length} closures uploaded successfully!`, '#007700');
                 getTrackedClosures();
             },
             onerror: function () {
                 setStatusMsg("Upload failed: Network error", '#bb0000');
             }
         };
-        setStatusMsg("Uploading closures...", '#0055bb');
+        setStatusMsg(`Uploading ${uploadData.closures.length} closures...`, '#0055bb');
         GM_xmlhttpRequest(details);
         getTrackedClosures();
     }
