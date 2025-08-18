@@ -6,6 +6,8 @@ Passively scans for user-generated/reported road closures in WME between zoom le
 * Plains (IA, KS, MN, MO, NE, ND, SD)
 * Great Lakes (IN, OH, MI, IL, WI)
 * Mid Atlantic (MD, VA, DC, WV)
+* South Central (TX)
+* Canada
 * Dominican Republic
 * Ireland
 * Greece
@@ -14,6 +16,7 @@ Passively scans for user-generated/reported road closures in WME between zoom le
 * United Arab Emirates
 * Nepal
 * Ecuador
+
 
 ## Contributors
 |Contributor|Helped with|
