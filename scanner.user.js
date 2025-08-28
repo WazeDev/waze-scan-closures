@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.29
+// @version      0.0.30
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -376,6 +376,7 @@
             const uploadData = {
                 // bbox: sdk.Map.getMapExtent(),
                 userName: wazeEditorName,
+                zoomLevel: sdk.Map.getZoomLevel(),
                 closures: allProcessedClosures
             };
             sendClosures(uploadData);

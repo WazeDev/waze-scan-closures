@@ -276,6 +276,7 @@ async function updateTracking(data: any) {
         roadTypeEnum: c.roadTypeEnum,
         duration: c.duration || "Unknown", // use provided duration or default to "Unknown"
         closureStatus: c.status || "New", // use provided status or default to "Unknown"
+        zoomLevel: data.zoomLevel || "Unknown", // add zoom level from upload data
         // Adjacency metadata from scanner
         isPartOfGroup: c.isPartOfGroup || false,
         groupId: c.groupId || null,
@@ -378,6 +379,7 @@ async function notifyDiscord({
   groupId = null,
   groupSize = 1,
   adjacentClosureIds = [],
+  zoomLevel = "Unknown", // zoom level from scanner
 }: {
   id: string;
   segID: string;
@@ -396,6 +398,7 @@ async function notifyDiscord({
   groupId?: string | null;
   groupSize?: number;
   adjacentClosureIds?: string[];
+  zoomLevel?: string; // optional zoom level parameter
 }) {
   let slackLocation;
   let regionCfg;
@@ -531,7 +534,15 @@ async function notifyDiscord({
     ...(scannerUserName && scannerUserName !== "Unknown Scanner"
       ? {
           footer: {
-            text: `Scanned by ${scannerUserName}`,
+            text: zoomLevel && zoomLevel !== "Unknown" 
+              ? `Scanned at zoom level ${zoomLevel} by ${scannerUserName}`
+              : `Scanned by ${scannerUserName}`,
+          },
+        }
+      : zoomLevel && zoomLevel !== "Unknown"
+      ? {
+          footer: {
+            text: `Scanned at zoom level ${zoomLevel}`,
           },
         }
       : {}),
@@ -699,7 +710,7 @@ async function notifyDiscordGrouped(
 
   // Use the first closure as the base for common information
   const firstClosure = closures[0];
-  const { segID, lat, lon, location, roadType, roadTypeEnum } = firstClosure;
+  const { segID, lat, lon, location, roadType, roadTypeEnum, zoomLevel } = firstClosure;
 
   let regionCfg;
   const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
@@ -850,7 +861,15 @@ async function notifyDiscordGrouped(
     ...(scannerUserName && scannerUserName !== "Unknown Scanner"
       ? {
           footer: {
-            text: `Scanned by ${scannerUserName}`,
+            text: zoomLevel && zoomLevel !== "Unknown" 
+              ? `Scanned at zoom level ${zoomLevel || "Unknown"} by ${scannerUserName}`
+              : `Scanned by ${scannerUserName}`,
+          },
+        }
+      : zoomLevel && zoomLevel !== "Unknown"
+      ? {
+          footer: {
+            text: `Scanned at zoom level ${zoomLevel}`,
           },
         }
       : {}),
@@ -1001,7 +1020,7 @@ async function notifyDiscordAdjacencyGroup(
 
   // Use the first closure as the base for common information
   const firstClosure = closures[0];
-  const { lat, lon, location, groupSize, groupId } = firstClosure;
+  const { lat, lon, location, groupSize, groupId, zoomLevel } = firstClosure;
 
   let regionCfg;
   const searchParams = `(road | improvements | closure | construction | project | work | detour | maintenance | closed ) AND (city | town | county | state) -realtor -zillow`;
@@ -1188,7 +1207,15 @@ async function notifyDiscordAdjacencyGroup(
     ...(scannerUserName && scannerUserName !== "Unknown Scanner"
       ? {
           footer: {
-            text: `Scanned by ${scannerUserName}`,
+            text: zoomLevel && zoomLevel !== "Unknown" 
+              ? `Scanned at zoom level ${zoomLevel || "Unknown"} by ${scannerUserName}`
+              : `Scanned by ${scannerUserName}`,
+          },
+        }
+      : zoomLevel && zoomLevel !== "Unknown"
+      ? {
+          footer: {
+            text: `Scanned at zoom level ${zoomLevel}`,
           },
         }
       : {}),
