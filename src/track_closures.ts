@@ -535,14 +535,14 @@ async function notifyDiscord({
       ? {
           footer: {
             text: zoomLevel && zoomLevel !== "Unknown" 
-              ? `Scanned at zoom level ${zoomLevel} by ${scannerUserName}`
-              : `Scanned by ${scannerUserName}`,
+              ? `Zoom Level: ${zoomLevel} | Scanned By: ${scannerUserName}`
+              : `Scanned By: ${scannerUserName}`,
           },
         }
       : zoomLevel && zoomLevel !== "Unknown"
       ? {
           footer: {
-            text: `Scanned at zoom level ${zoomLevel}`,
+            text: `Zoom Level: ${zoomLevel}`,
           },
         }
       : {}),
@@ -678,7 +678,7 @@ async function notifyDiscord({
           elements: [
             {
               type: "mrkdwn",
-              text: `Scanned by ${scannerUserName}`,
+              text: `Scanned By: ${scannerUserName}`,
             },
           ],
         } as any);
@@ -861,15 +861,15 @@ async function notifyDiscordGrouped(
     ...(scannerUserName && scannerUserName !== "Unknown Scanner"
       ? {
           footer: {
-            text: zoomLevel && zoomLevel !== "Unknown" 
-              ? `Scanned at zoom level ${zoomLevel || "Unknown"} by ${scannerUserName}`
-              : `Scanned by ${scannerUserName}`,
+            text: zoomLevel && zoomLevel !== "Unknown"
+              ? `Zoom Level: ${zoomLevel || "Unknown"} | Scanned By: ${scannerUserName}`
+              : `Scanned By: ${scannerUserName}`,
           },
         }
       : zoomLevel && zoomLevel !== "Unknown"
       ? {
           footer: {
-            text: `Scanned at zoom level ${zoomLevel}`,
+            text: `Zoom Level: ${zoomLevel || "Unknown"}`,
           },
         }
       : {}),
@@ -987,7 +987,7 @@ async function notifyDiscordGrouped(
           elements: [
             {
               type: "mrkdwn",
-              text: `Scanned by ${scannerUserName}`,
+              text: `Scanned By: ${scannerUserName}`,
             },
           ],
         } as any);
@@ -1207,15 +1207,15 @@ async function notifyDiscordAdjacencyGroup(
     ...(scannerUserName && scannerUserName !== "Unknown Scanner"
       ? {
           footer: {
-            text: zoomLevel && zoomLevel !== "Unknown" 
-              ? `Scanned at zoom level ${zoomLevel || "Unknown"} by ${scannerUserName}`
-              : `Scanned by ${scannerUserName}`,
+            text: zoomLevel && zoomLevel !== "Unknown"
+              ? `Zoom Level: ${zoomLevel || "Unknown"} | Scanned By: ${scannerUserName}`
+              : `Scanned By: ${scannerUserName}`,
           },
         }
       : zoomLevel && zoomLevel !== "Unknown"
       ? {
           footer: {
-            text: `Scanned at zoom level ${zoomLevel}`,
+            text: `Zoom Level: ${zoomLevel || "Unknown"}`,
           },
         }
       : {}),
@@ -1333,7 +1333,7 @@ async function notifyDiscordAdjacencyGroup(
           elements: [
             {
               type: "mrkdwn",
-              text: `Scanned by ${scannerUserName}`,
+              text: `Scanned By: ${scannerUserName}`,
             },
           ],
         } as any);
