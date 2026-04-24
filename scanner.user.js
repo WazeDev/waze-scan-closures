@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Waze Scan Closures
 // @namespace    https://github.com/WazeDev/waze-scan-closures
-// @version      0.0.30
+// @version      0.0.31
 // @description  Passively scans for user-generated/reported road closures in WME and sends Discord/Slack notifications when new closures are reported.
 // @author       Gavin Canon-Phratsachack (https://github.com/gncnpk)
 // @match        https://beta.waze.com/*editor*
@@ -15,6 +15,7 @@
 // @grant        unsafeWindow
 // @connect      wsc.gc-p.zip
 // ==/UserScript==
+/* global WMEWAL */
 
 (function () {
     'use strict';
@@ -76,7 +77,17 @@
             });
             statusMsgEl = res.tabPane.querySelector("#WSCStatusMsg");
         });
+        checkWAL();
         console.log(`Waze Scan Closures: Initialized!`);
+    }
+
+    // check if WAL is running and if so, set its flag to keep closures layer enabled during scans
+    function checkWAL(tries = 1) {
+        if (typeof WMEWAL == 'object' && typeof WMEWAL.alwaysLoadClosures == 'boolean') {
+            WMEWAL.alwaysLoadClosures = true;
+        }
+        else if (tries < 60)
+            setTimeout(function () {checkWAL(++tries);}, 1000);
     }
 
     // Helper to set status message
